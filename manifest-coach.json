@@ -1,4 +1,5 @@
 {
+  "id": "bear-gym-coach-app",
   "short_name": "Bear Trener",
   "name": "Bear Gym Panel Trenera",
   "icons": [
@@ -17,5 +18,6 @@
   "display": "standalone",
   "theme_color": "#ef4444",
   "background_color": "#121212",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "scope": "/"
 }

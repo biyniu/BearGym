@@ -1,4 +1,5 @@
 {
+  "id": "bear-gym-client-app",
   "short_name": "Bear Gym",
   "name": "Bear Gym Training App",
   "icons": [
@@ -17,5 +18,6 @@
   "display": "standalone",
   "theme_color": "#121212",
   "background_color": "#121212",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "scope": "/"
 }
