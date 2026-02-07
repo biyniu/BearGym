@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+
+import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import { remoteStorage, parseDateStr, storage } from '../services/storage';
 import { Exercise, WarmupExercise, ExerciseType } from '../types';
 import { ActivityWidget } from './Dashboard';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AppContext } from '../App';
 
 type CoachTab = 'plan' | 'history' | 'calendar' | 'cardio' | 'measurements' | 'progress' | 'training' | 'info';
 
@@ -14,6 +16,7 @@ const CustomLabel = (props: any) => {
 };
 
 export default function CoachDashboard() {
+  const { startRestTimer, settings } = useContext(AppContext);
   const [authCode, setAuthCode] = useState('');
   const [userRole, setUserRole] = useState<'super-admin' | 'coach' | null>(null);
   const [currentCoachName, setCurrentCoachName] = useState('');
@@ -38,6 +41,9 @@ export default function CoachDashboard() {
     results: { [exId: string]: { kg: string, reps: string }[] },
     notes: { [exId: string]: string }
   } | null>(null);
+
+  const [coachCompletedSets, setCoachCompletedSets] = useState<Record<string, boolean>>({});
+
   const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | 'excel-import' | 'transfer-client' | null>(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   const [form, setForm] = useState({ name: '', code: '' });
@@ -46,6 +52,35 @@ export default function CoachDashboard() {
   // States dla paska bocznego
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
+
+  // Logika resetowania ukończonych serii trenera
+  useEffect(() => {
+    if (selectedClient && activeTraining) {
+      const today = new Date().toISOString().split('T')[0];
+      const storageKey = `coach_last_date_${selectedClient.code}_${activeTraining.workoutId}`;
+      const lastDate = localStorage.getItem(storageKey);
+
+      if (lastDate !== today) {
+        // Czyścimy stare serie dla tego klienta/treningu
+        const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith(prefix)) localStorage.removeItem(key);
+        });
+        localStorage.setItem(storageKey, today);
+        setCoachCompletedSets({});
+      } else {
+        // Ładujemy obecne
+        const currentSets: Record<string, boolean> = {};
+        const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith(prefix)) {
+            currentSets[key.replace(prefix, '')] = localStorage.getItem(key) === 'true';
+          }
+        });
+        setCoachCompletedSets(currentSets);
+      }
+    }
+  }, [selectedClient, activeTraining]);
 
   const handleLogin = async () => {
     setLoading(true);
@@ -351,6 +386,20 @@ export default function CoachDashboard() {
     setActiveTraining({ ...(activeTraining as any), results: updatedResults });
   };
 
+  const toggleCoachSet = (exId: string, sIdx: number, rest: number) => {
+    if (!selectedClient || !activeTraining) return;
+    const key = `${exId}_s${sIdx}`;
+    const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
+    const newState = !coachCompletedSets[key];
+    
+    setCoachCompletedSets(prev => ({ ...prev, [key]: newState }));
+    localStorage.setItem(`${prefix}${key}`, newState.toString());
+
+    if (newState && settings.autoRestTimer) {
+      startRestTimer(rest);
+    }
+  };
+
   const updateLiveNote = (exId: string, val: string) => {
     if (!activeTraining) return;
     const updatedNotes = { ...(activeTraining.notes || {}) };
@@ -389,6 +438,10 @@ export default function CoachDashboard() {
     });
     if (success) {
         alert("Zapisano!");
+        // Czyścimy lokalne ptaszki przy kończeniu
+        const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
+        Object.keys(localStorage).forEach(k => { if(k.startsWith(prefix)) localStorage.removeItem(k); });
+        setCoachCompletedSets({});
         await loadClientDetail(selectedClient.code);
         setActiveTraining(null);
     } else alert("Błąd zapisu.");
@@ -546,6 +599,7 @@ export default function CoachDashboard() {
                 </div>
               </div>
               <nav className="flex bg-[#161616] p-1 rounded-2xl border border-gray-800 overflow-x-auto w-full xl:w-auto scrollbar-hide no-scrollbar">
+                <TabBtn active={activeTab === 'training'} onClick={() => setActiveTab('training')} label="PROWADŹ" icon="fa-tablet-alt" color="text-yellow-500" />
                 <TabBtn active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} label="PLAN" icon="fa-dumbbell" />
                 <TabBtn active={activeTab === 'history'} onClick={() => setActiveTab('history')} label="HISTORIA" icon="fa-history" />
                 <TabBtn active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} label="KALENDARZ" icon="fa-calendar-alt" />
@@ -553,7 +607,6 @@ export default function CoachDashboard() {
                 <TabBtn active={activeTab === 'cardio'} onClick={() => setActiveTab('cardio')} label="AKTYWNOŚĆ" icon="fa-running" />
                 <TabBtn active={activeTab === 'measurements'} onClick={() => setActiveTab('measurements')} label="POMIARY" icon="fa-ruler" />
                 <TabBtn active={activeTab === 'info'} onClick={() => setActiveTab('info')} label="INFO" icon="fa-info-circle" color="text-blue-400" />
-                <TabBtn active={activeTab === 'training'} onClick={() => setActiveTab('training')} label="PROWADŹ" icon="fa-tablet-alt" color="text-yellow-500" />
               </nav>
             </header>
 
@@ -693,7 +746,14 @@ export default function CoachDashboard() {
                                     {selectedClient.plan[activeTraining.workoutId].warmup?.map((w: any, idx: number) => (
                                         <div key={idx} className="flex justify-between items-center text-xs md:text-sm border-b border-gray-800 pb-2 last:border-0">
                                             <span className="text-gray-300"><span className="text-gray-600 font-bold mr-2">{idx+1}.</span> {w.pl || w.name}</span>
-                                            <span className="text-gray-500 font-bold">{w.reps}</span>
+                                            <div className="flex items-center space-x-3">
+                                                <span className="text-gray-500 font-bold">{w.reps}</span>
+                                                {w.link && (
+                                                    <a href={w.link} target="_blank" rel="noreferrer" className="text-red-500 hover:text-red-400">
+                                                        <i className="fab fa-youtube"></i>
+                                                    </a>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                     {(!selectedClient.plan[activeTraining.workoutId].warmup || selectedClient.plan[activeTraining.workoutId].warmup.length === 0) && (
@@ -726,25 +786,35 @@ export default function CoachDashboard() {
                                         </div>
 
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 mb-6">
-                                            {Array.from({length: ex.sets}).map((_, sIdx) => (
-                                                <div key={sIdx} className="space-y-2">
-                                                    <span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest italic">Seria {sIdx+1}</span>
-                                                    <div className="flex space-x-2">
-                                                        <input 
-                                                            placeholder="kg" 
-                                                            value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} 
-                                                            onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} 
-                                                            className="w-1/2 bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl md:rounded-2xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
-                                                        />
-                                                        <input 
-                                                            placeholder="p" 
-                                                            value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
-                                                            onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
-                                                            className="w-1/2 bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl md:rounded-2xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
-                                                        />
+                                            {Array.from({length: ex.sets}).map((_, sIdx) => {
+                                                const setNum = sIdx + 1;
+                                                const isDone = coachCompletedSets[`${ex.id}_s${setNum}`];
+                                                return (
+                                                    <div key={sIdx} className={`space-y-2 transition-opacity ${isDone ? 'opacity-40' : 'opacity-100'}`}>
+                                                        <span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest italic">Seria {setNum}</span>
+                                                        <div className="flex space-x-2">
+                                                            <input 
+                                                                placeholder="kg" 
+                                                                value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} 
+                                                                onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} 
+                                                                className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                            />
+                                                            <input 
+                                                                placeholder="p" 
+                                                                value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
+                                                                onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
+                                                                className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                            />
+                                                            <button 
+                                                                onClick={() => toggleCoachSet(ex.id, setNum, ex.rest)}
+                                                                className={`w-14 h-11 md:h-14 rounded-xl flex items-center justify-center transition-all border shrink-0 ${isDone ? 'bg-green-600 border-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-gray-800 border-gray-700 text-gray-600'}`}
+                                                            >
+                                                                <i className={`fas fa-check ${isDone ? 'scale-110' : 'scale-100'}`}></i>
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
 
                                         <div className="mt-6 pt-4 border-t border-gray-800/50">
@@ -759,6 +829,10 @@ export default function CoachDashboard() {
                                     </div>
                                 ))}
                             </div>
+
+                            <button onClick={finishLiveTraining} className="w-full mt-10 bg-green-600 hover:bg-green-700 py-6 rounded-3xl font-black text-white text-base md:text-xl uppercase italic shadow-2xl transition transform active:scale-95 flex items-center justify-center">
+                                <i className="fas fa-check-circle mr-3"></i> ZAKOŃCZ I ZAPISZ TRENING
+                            </button>
                         </div>
                     )}
                 </div>

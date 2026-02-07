@@ -52,7 +52,15 @@ export default function ActiveWorkout() {
     return new Date(now.getTime() - offset).toISOString().slice(0, 16);
   });
 
-  // Logika resetowania "ptaszków" w kolejnym dniu
+  // Funkcja pomocnicza do czyszczenia ptaszków
+  const clearCompletionMarks = () => {
+    if (!id || !workoutData) return;
+    workoutData.exercises.forEach(ex => {
+      localStorage.removeItem(`completed_${id}_${ex.id}`);
+    });
+  };
+
+  // Logika resetowania "ptaszków" w kolejnym dniu (jako backup)
   useEffect(() => {
     if (!id || !workoutData) return;
 
@@ -61,10 +69,7 @@ export default function ActiveWorkout() {
     const lastDate = localStorage.getItem(lastDateKey);
 
     if (lastDate !== today) {
-      // Resetujemy status ukończenia wszystkich ćwiczeń w tym treningu
-      workoutData.exercises.forEach(ex => {
-        localStorage.removeItem(`completed_${id}_${ex.id}`);
-      });
+      clearCompletionMarks();
       localStorage.setItem(lastDateKey, today);
     }
     setIsReady(true);
@@ -158,7 +163,9 @@ export default function ActiveWorkout() {
     storage.saveHistory(id, history);
     await syncData('history', history);
     
+    // CZYSZCZENIE SESJI
     storage.clearTempInputs(id, workoutData.exercises);
+    clearCompletionMarks(); // Reset ptaszków przy zapisie
     setWorkoutStartTime(null);
     stopRestTimer();
     setShowEmptyWarning(false);
@@ -174,6 +181,7 @@ export default function ActiveWorkout() {
     setWorkoutStartTime(null);
     sessionStorage.removeItem('workout_start_time');
     storage.clearTempInputs(id, workoutData.exercises);
+    clearCompletionMarks(); // Reset ptaszków przy odrzuceniu
     navigate('/', { replace: true });
   };
 
