@@ -24,12 +24,11 @@ export default function CoachDashboard() {
   const [activeTab, setActiveTab] = useState<CoachTab>('plan');
   
   const [isEditingPlan, setIsEditingPlan] = useState(false);
-  // Fix: Initialize editedPlan as an empty object instead of null to allow spreading
   const [editedPlan, setEditedPlan] = useState<any>({});
   const [selectedChartWorkoutId, setSelectedChartWorkoutId] = useState<string>("");
 
   const [activeTraining, setActiveTraining] = useState<{workoutId: string, results: { [exId: string]: { kg: string, reps: string }[] }} | null>(null);
-  const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | 'excel-import' | null>(null);
+  const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | 'excel-import' | 'transfer-client' | null>(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   const [form, setForm] = useState({ name: '', code: '' });
   const [excelData, setExcelData] = useState('');
@@ -110,6 +109,24 @@ export default function CoachDashboard() {
     setLoading(false);
   };
 
+  const editCoachName = async (id: string, currentName: string) => {
+    const newName = window.prompt("Nowe imię i nazwisko trenera:", currentName);
+    if (!newName || newName === currentName) return;
+    setLoading(true);
+    const success = await remoteStorage.updateCoachName(id, newName);
+    if (success) await handleGlobalRefresh();
+    setLoading(false);
+  };
+
+  const editClientName = async (code: string, currentName: string) => {
+    const newName = window.prompt("Nowe imię i nazwisko podopiecznego:", currentName);
+    if (!newName || newName === currentName) return;
+    setLoading(true);
+    const success = await remoteStorage.updateClientName(code, newName);
+    if (success) await loadClientDetail(code);
+    setLoading(false);
+  };
+
   const filteredClients = useMemo(() => {
     const listToFilter = searchQuery ? allClientsPool : clients;
     return listToFilter.filter(c => 
@@ -122,7 +139,6 @@ export default function CoachDashboard() {
     });
   }, [clients, allClientsPool, searchQuery]);
 
-  // Posortowane dni planu według displayOrder
   const sortedPlanEntries = useMemo(() => {
     if (!editedPlan) return [];
     return Object.entries(editedPlan).sort((a: any, b: any) => {
@@ -135,23 +151,20 @@ export default function CoachDashboard() {
   const flatHistory = useMemo(() => {
     if (!selectedClient?.history) return [];
     const all: any[] = [];
-    
-    // Historia jest przechowywana jako { workoutId: [entries] }
     Object.entries(selectedClient.history).forEach(([wId, historyArray]: [string, any]) => {
         if (Array.isArray(historyArray)) {
             historyArray.forEach(h => {
-                all.push({ ...h, workoutId: wId }); // Wstrzykujemy workoutId
+                all.push({ ...h, workoutId: wId });
             });
         }
     });
-    
     return all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   }, [selectedClient]);
 
   const getExerciseChartData = (workoutId: string, exerciseId: string) => {
     if (!flatHistory) return [];
     return flatHistory.slice()
-      .filter(h => h.workoutId === workoutId) // Teraz filtrowanie działa poprawnie
+      .filter(h => h.workoutId === workoutId)
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
       .map(entry => {
         const resultStr = entry.results[exerciseId];
@@ -247,8 +260,9 @@ export default function CoachDashboard() {
     if(!title) return;
     const id = `w_${Date.now()}`;
     const maxOrder = sortedPlanEntries.length > 0 ? Math.max(...sortedPlanEntries.map(e => (e[1] as any).displayOrder || 0)) : 0;
-    // Fix: Guard spreading of editedPlan to ensure it's an object
-    setEditedPlan({ ...(editedPlan || {}), [id]: { title, exercises: [], warmup: [], displayOrder: maxOrder + 10 } });
+    // Fix: Use functional update and avoid spreading a potentially non-object type or spreading in a way that risks null.
+    // Line 275 fix.
+    setEditedPlan((prev: any) => ({ ...(prev || {}), [id]: { title, exercises: [], warmup: [], displayOrder: maxOrder + 10 } }));
   };
 
   const moveWorkoutDay = (workoutId: string, direction: 'up' | 'down') => {
@@ -257,14 +271,9 @@ export default function CoachDashboard() {
     if (index === -1) return;
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= entries.length) return;
-    
-    // Zamiana miejscami w tablicy pomocniczej
     [entries[index], entries[newIndex]] = [entries[newIndex], entries[index]];
-    
-    // Przebudowanie obiektu z nowymi displayOrder
     const updatedPlan: any = {};
     entries.forEach(([id, val], i) => {
-        // Fix: Ensure val is an object before spreading
         updatedPlan[id] = { ...(val || {}), displayOrder: i * 10 };
     });
     setEditedPlan(updatedPlan);
@@ -272,7 +281,6 @@ export default function CoachDashboard() {
 
   const addExercise = (wId: string) => {
     const newEx: Exercise = { id: `ex_${Date.now()}`, name: "Nowe ćwiczenie", pl: "", sets: 4, reps: "8-12", tempo: "2011", rir: "2", rest: 90, link: "", type: "standard" };
-    // Fix: Guard spreading of editedPlan
     const updated = { ...(editedPlan || {}) };
     if (!updated[wId].exercises) updated[wId].exercises = [];
     updated[wId].exercises.push(newEx);
@@ -281,7 +289,6 @@ export default function CoachDashboard() {
 
   const addWarmup = (wId: string) => {
     const newW: WarmupExercise = { name: "Nowe cardio/mobilizacja", pl: "", link: "", reps: "10 min" };
-    // Fix: Guard spreading of editedPlan
     const updated = { ...(editedPlan || {}) };
     if (!updated[wId].warmup) updated[wId].warmup = [];
     updated[wId].warmup.push(newW);
@@ -289,14 +296,12 @@ export default function CoachDashboard() {
   };
 
   const updateExField = (wId: string, exIdx: number, field: keyof Exercise, val: any) => {
-    // Fix: Guard spreading of editedPlan
     const updated = { ...(editedPlan || {}) };
     updated[wId].exercises[exIdx] = { ...updated[wId].exercises[exIdx], [field]: val };
     setEditedPlan(updated);
   };
 
   const updateWarmupField = (wId: string, wIdx: number, field: keyof WarmupExercise, val: any) => {
-    // Fix: Guard spreading of editedPlan
     const updated = { ...(editedPlan || {}) };
     updated[wId].warmup[wIdx] = { ...updated[wId].warmup[wIdx], [field]: val };
     setEditedPlan(updated);
@@ -360,13 +365,14 @@ export default function CoachDashboard() {
 
   const updateLiveResult = (exId: string, sIdx: number, field: 'kg' | 'reps', val: string) => {
     if (!activeTraining) return;
-    // Fix: Ensure results is an object before spreading
     const updatedResults = { ...(activeTraining.results || {}) };
     if (!updatedResults[exId]) updatedResults[exId] = [];
     if (!updatedResults[exId][sIdx]) updatedResults[exId][sIdx] = { kg: '', reps: '' };
     updatedResults[exId][sIdx] = { ...updatedResults[exId][sIdx], [field]: val };
-    // Fix: Ensure activeTraining is spread as an object
-    setActiveTraining({ ...(activeTraining || {}), results: updatedResults });
+    // Fix: Remove potentially undefined/null spread of activeTraining since it is checked above. 
+    // This ensures workoutId (required property) is included in the new state.
+    // Line 370/372 fix.
+    setActiveTraining({ ...activeTraining, results: updatedResults });
   };
 
   const startLiveTraining = (workoutId: string) => {
@@ -386,22 +392,29 @@ export default function CoachDashboard() {
         if (formattedSets.length > 0) sessionResults[exId] = formattedSets.join(' | ');
     });
     const newEntry = { date: dateStr, timestamp: d.getTime(), results: sessionResults, workoutId: activeTraining.workoutId };
-    
-    // Dodajemy do specyficznego klucza workoutId
     const currentHistory = selectedClient.history?.[activeTraining.workoutId] || [];
     const updatedHistory = [newEntry, ...currentHistory];
-    
-    // Fix: Guard spreading of selectedClient.history
     const success = await remoteStorage.saveToCloud(selectedClient.code, 'history', { 
         ...(selectedClient.history || {}), 
         [activeTraining.workoutId]: updatedHistory 
     });
-    
     if (success) {
         alert("Zapisano!");
         await loadClientDetail(selectedClient.code);
         setActiveTraining(null);
     } else alert("Błąd zapisu.");
+    setLoading(false);
+  };
+
+  const handleTransferClient = async (newCoachId: string) => {
+    if (!selectedClient) return;
+    setLoading(true);
+    const success = await remoteStorage.transferClient(selectedClient.code, newCoachId);
+    if (success) {
+        alert("Podopieczny został przeniesiony.");
+        setModalType(null);
+        await handleGlobalRefresh();
+    } else alert("Błąd transferu.");
     setLoading(false);
   };
 
@@ -414,7 +427,6 @@ export default function CoachDashboard() {
       const random = Math.floor(100 + Math.random() * 900);
       suggestedCode = `${first}${last}${random}`;
     }
-    // Fix: Guard spreading of form
     setForm({ ...(form || {}), name: val, code: suggestedCode });
   };
 
@@ -461,7 +473,10 @@ export default function CoachDashboard() {
               {coaches.map(c => (
                 <div key={c.id} className="group relative flex items-center">
                   <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-500'}`}><span className="font-bold text-[11px] uppercase italic">{c.name}</span></button>
-                  <button onClick={() => confirmDeleteCoach(c)} className="absolute right-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
+                  <div className="absolute right-2 opacity-0 group-hover:opacity-100 flex items-center space-x-1">
+                    <button onClick={() => editCoachName(c.id, c.name)} className="text-blue-900 hover:text-blue-500 transition text-[10px] p-2"><i className="fas fa-pen"></i></button>
+                    <button onClick={() => confirmDeleteCoach(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -487,7 +502,19 @@ export default function CoachDashboard() {
             <header className="mb-10 flex flex-col md:flex-row justify-between items-start gap-6 border-b border-gray-800 pb-8">
               <div className="flex items-start space-x-6">
                 <div className="w-16 h-16 bg-gray-800 rounded-2xl flex items-center justify-center text-3xl font-black text-white italic border border-gray-700">{selectedClient.name.charAt(0)}</div>
-                <div><h1 className="text-5xl font-black text-white italic uppercase leading-none mb-2">{selectedClient.name}</h1><div className="flex items-center space-x-4"><span className="bg-gray-800 px-2 py-0.5 rounded text-[10px] text-gray-400">ID: {selectedClient.code}</span><button onClick={toggleClientStatus} className={`text-[10px] font-black uppercase italic ${selectedClient.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>Status: {selectedClient.status === 'active' ? 'Aktywny' : 'Zarchiwizowany'}</button></div></div>
+                <div>
+                  <div className="flex items-center space-x-3">
+                    <h1 className="text-5xl font-black text-white italic uppercase leading-none mb-2">{selectedClient.name}</h1>
+                    <button onClick={() => editClientName(selectedClient.code, selectedClient.name)} className="text-gray-600 hover:text-blue-500 transition-colors text-xl"><i className="fas fa-pen"></i></button>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <span className="bg-gray-800 px-2 py-0.5 rounded text-[10px] text-gray-400">ID: {selectedClient.code}</span>
+                    <button onClick={toggleClientStatus} className={`text-[10px] font-black uppercase italic ${selectedClient.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>Status: {selectedClient.status === 'active' ? 'Aktywny' : 'Zarchiwizowany'}</button>
+                    {userRole === 'super-admin' && (
+                      <button onClick={() => setModalType('transfer-client')} className="text-[10px] font-black uppercase italic text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 hover:bg-blue-500 hover:text-white transition">Zmień Trenera</button>
+                    )}
+                  </div>
+                </div>
               </div>
               <nav className="flex bg-[#161616] p-1 rounded-2xl border border-gray-800 overflow-x-auto">
                 <TabBtn active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} label="PLAN" icon="fa-dumbbell" />
@@ -702,6 +729,23 @@ export default function CoachDashboard() {
                 <div className="space-y-4">
                     <textarea value={excelData} onChange={e => setExcelData(e.target.value)} placeholder="Wklej tutaj dane..." className="w-full h-64 bg-black border border-gray-800 p-4 rounded-xl text-[10px] text-gray-400 font-mono outline-none focus:border-purple-600 transition" />
                     <button onClick={handleExcelImport} className="w-full bg-purple-600 hover:bg-purple-700 py-4 rounded-xl font-black uppercase italic text-white shadow-2xl transition active:scale-95">ZAIMPORTUJ</button>
+                </div>
+              </div>
+            ) : modalType === 'transfer-client' ? (
+              <div className="w-full">
+                <h3 className="text-2xl font-black text-white italic uppercase mb-6 tracking-tight">Przenieś do trenera</h3>
+                <div className="space-y-4">
+                  <select 
+                    onChange={(e) => handleTransferClient(e.target.value)}
+                    className="w-full bg-black border border-gray-800 p-4 rounded-xl text-white outline-none focus:border-blue-600 uppercase font-bold italic text-xs"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>-- WYBIERZ TRENERA --</option>
+                    {coaches.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button onClick={() => setModalType(null)} className="w-full bg-gray-800 py-4 rounded-xl text-gray-400 font-black uppercase italic text-xs">Anuluj</button>
                 </div>
               </div>
             ) : (

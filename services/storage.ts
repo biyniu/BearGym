@@ -73,6 +73,13 @@ export const remoteStorage = {
     } catch (e) { return []; }
   },
 
+  updateCoachName: async (id: string, name: string) => {
+    try {
+      await updateDoc(doc(db, "coaches", id.toUpperCase()), { name });
+      return true;
+    } catch (e) { return false; }
+  },
+
   deleteCoach: async (id: string) => {
     try {
       await deleteDoc(doc(db, "coaches", id.toUpperCase()));
@@ -109,6 +116,20 @@ export const remoteStorage = {
   updateClientStatus: async (code: string, status: 'active' | 'inactive') => {
     try {
       await updateDoc(doc(db, "clients", code.toUpperCase()), { status });
+      return true;
+    } catch (e) { return false; }
+  },
+
+  updateClientName: async (code: string, name: string) => {
+    try {
+      await updateDoc(doc(db, "clients", code.toUpperCase()), { name });
+      return true;
+    } catch (e) { return false; }
+  },
+
+  transferClient: async (code: string, newCoachId: string) => {
+    try {
+      await updateDoc(doc(db, "clients", code.toUpperCase()), { coachId: newCoachId.toUpperCase() });
       return true;
     } catch (e) { return false; }
   },
