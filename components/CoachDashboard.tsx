@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo, useCallback, useContext, useRef } from 'react';
 import { remoteStorage, parseDateStr, storage } from '../services/storage';
-import { Exercise, WarmupExercise, ExerciseType } from '../types';
+import { Exercise, WarmupExercise, ExerciseType, CardioSession } from '../types';
 import { ActivityWidget } from './Dashboard';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { AppContext } from '../App';
@@ -15,7 +16,7 @@ const CustomLabel = (props: any) => {
 };
 
 export default function CoachDashboard() {
-  const { startRestTimer, settings } = useContext(AppContext);
+  const { startRestTimer, stopRestTimer, restTimer, settings, updateSettings, playAlarm } = useContext(AppContext);
   const [authCode, setAuthCode] = useState('');
   const [userRole, setUserRole] = useState<'super-admin' | 'coach' | null>(null);
   const [currentCoachName, setCurrentCoachName] = useState('');
@@ -44,7 +45,7 @@ export default function CoachDashboard() {
 
   const [coachCompletedSets, setCoachCompletedSets] = useState<Record<string, boolean>>({});
 
-  const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | 'excel-import' | 'transfer-client' | null>(null);
+  const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | 'excel-import' | 'transfer-client' | 'coach-audio-settings' | null>(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   const [form, setForm] = useState({ name: '', code: '' });
   const [excelData, setExcelData] = useState('');
@@ -202,7 +203,8 @@ export default function CoachDashboard() {
     if (!selectedClient?.history) return [];
     const all: any[] = [];
     Object.entries(selectedClient.history).forEach(([wId, historyArray]: [string, any]) => {
-        if (Array.isArray(historyArray)) {
+        // FILTRUJEMY HISTORIĘ: TYLKO DLA TRENINGÓW KTÓRE SĄ W PLANIE
+        if (Array.isArray(historyArray) && selectedClient.plan?.[wId]) {
             historyArray.forEach(h => {
                 all.push({ ...h, workoutId: wId });
             });
@@ -215,7 +217,8 @@ export default function CoachDashboard() {
     if (!flatHistory) return [];
     return flatHistory.slice()
       .filter(h => h.workoutId === workoutId)
-      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      // POPRAWKA: Sortowanie chronologiczne według parsowanej daty dla pewności
+      .sort((a, b) => parseDateStr(a.date) - parseDateStr(b.date))
       .map(entry => {
         const resultStr = entry.results[exerciseId];
         if (!resultStr) return null;
@@ -226,11 +229,12 @@ export default function CoachDashboard() {
         for (const match of matches) {
           const weightVal = parseFloat(match[1].replace(',', '.'));
           if (!isNaN(weightVal)) {
-            if (weightVal > maxWeight) weightVal;
+            if (weightVal > maxWeight) maxWeight = weightVal;
             found = true;
           }
         }
         if (!found) return null;
+        // Pokazujemy tylko DD.MM na osi X
         return { date: entry.date.split(/[ ,]/)[0].slice(0, 5), weight: maxWeight };
       })
       .filter(Boolean);
@@ -462,7 +466,6 @@ export default function CoachDashboard() {
   };
 
   const startLiveTraining = (workoutId: string) => {
-    // Synchronizacja początkowych wyników z historią (tak jak u podopiecznego)
     const lastSession = selectedClient?.history?.[workoutId]?.[0];
     const initialResults: { [exId: string]: { kg: string, reps: string, time: string }[] } = {};
     
@@ -541,6 +544,7 @@ export default function CoachDashboard() {
         setCoachCompletedSets({});
         await loadClientDetail(selectedClient.code);
         setActiveTraining(null);
+        stopRestTimer();
     } else alert("Błąd zapisu.");
     setLoading(false);
   };
@@ -567,6 +571,74 @@ export default function CoachDashboard() {
       suggestedCode = `${first}${last}${random}`;
     }
     setForm({ ...form, name: val, code: suggestedCode });
+  };
+
+  const deleteCardioSession = async (sessionId: string) => {
+    if(!selectedClient || !window.confirm("Usunąć tę aktywność?")) return;
+    const currentCardio = selectedClient.extras?.cardio || [];
+    const updatedCardio = currentCardio.filter((s: any) => s.id !== sessionId);
+    
+    setLoading(true);
+    const success = await remoteStorage.saveToCloud(selectedClient.code, 'extras', {
+        ...selectedClient.extras,
+        cardio: updatedCardio
+    });
+    
+    if (success) {
+        setSelectedClient((prev: any) => ({
+            ...prev,
+            extras: { ...prev.extras, cardio: updatedCardio }
+        }));
+    } else alert("Błąd zapisu.");
+    setLoading(false);
+  };
+
+  const groupedCardio = useMemo(() => {
+    if (!selectedClient?.extras?.cardio) return [];
+    const sessions = [...selectedClient.extras.cardio];
+    const groups: { [key: string]: any[] } = {};
+
+    sessions.forEach(session => {
+        const [y, m, d] = session.date.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d, 12, 0, 0); 
+        const dayOfWeek = dateObj.getDay(); 
+        const dist = (dayOfWeek + 6) % 7;
+        dateObj.setDate(dateObj.getDate() - dist);
+        const monY = dateObj.getFullYear();
+        const monM = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const monD = dateObj.getDate().toString().padStart(2, '0');
+        const key = `${monY}-${monM}-${monD}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(session);
+    });
+
+    return Object.entries(groups)
+        .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+        .map(([mondayDate, items]) => {
+            const [y, m, d] = mondayDate.split('-').map(Number);
+            const start = new Date(y, m - 1, d, 12, 0, 0);
+            const end = new Date(start);
+            end.setDate(end.getDate() + 6);
+            const formatD = (dObj: Date) => `${dObj.getDate().toString().padStart(2,'0')}.${(dObj.getMonth()+1).toString().padStart(2,'0')}`;
+            return { 
+                label: `${formatD(start)} - ${formatD(end)}`, 
+                items: items.sort((a,b) => b.date.localeCompare(a.date)), 
+                count: items.length 
+            };
+        });
+  }, [selectedClient]);
+
+  const cardioTypeInfo = (type: string) => {
+    switch(type) {
+        case 'spacer': return { label: 'Spacer / Chodzenie', icon: 'fa-person-walking', color: 'bg-green-600', text: 'text-green-500' };
+        case 'mobility': return { label: 'Mobility / Rozciąganie', icon: 'fa-universal-access', color: 'bg-purple-600', text: 'text-purple-500' };
+        case 'fight': return { label: 'Fight / Sporty Walki', icon: 'fa-hand-fist', color: 'bg-sky-500', text: 'text-sky-500' };
+        case 'bieznia': return { label: 'Bieżnia', icon: 'fa-running', color: 'bg-red-600', text: 'text-white' };
+        case 'rowerek': return { label: 'Rowerek Stacjonarny', icon: 'fa-bicycle', color: 'bg-red-600', text: 'text-white' };
+        case 'schody': return { label: 'Schody', icon: 'fa-stairs', color: 'bg-red-600', text: 'text-white' };
+        case 'orbitrek': return { label: 'Orbitrek', icon: 'fa-walking', color: 'bg-red-600', text: 'text-white' };
+        default: return { label: type.toUpperCase(), icon: 'fa-running', color: 'bg-red-600', text: 'text-white' };
+    }
   };
 
   if (!userRole) {
@@ -809,24 +881,38 @@ export default function CoachDashboard() {
               <div className="space-y-6 animate-fade-in">
                 <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter">Historia Treningów</h3>
                 <div className="grid grid-cols-1 gap-4">
-                    {flatHistory.map((h: any, i: number) => (
-                        <div key={i} className="bg-[#161616] p-5 md:p-6 rounded-2xl border border-gray-800 hover:bg-gray-800/50 transition border-l-4 border-red-600">
-                            <div className="flex justify-between items-center mb-4">
-                                <div>
-                                    <div className="text-red-500 font-black text-[10px] md:text-xs uppercase italic">{h.date}</div>
-                                    <div className="text-white font-black text-lg md:text-xl uppercase italic tracking-tight truncate">{selectedClient.plan?.[h.workoutId]?.title || 'Trening'}</div>
+                    {flatHistory.map((h: any, i: number) => {
+                        // FILTRUJEMY I SORTUJEMY WYNIKI: TYLKO ĆWICZENIA KTÓRE SĄ W PLANIE, W ODPOWIEDNIEJ KOLEJNOŚCI
+                        const workoutPlan = selectedClient.plan?.[h.workoutId];
+                        const resultsToShow = workoutPlan?.exercises
+                            ? workoutPlan.exercises
+                                .filter((ex: any) => h.results[ex.id])
+                                .map((ex: any) => ({ id: ex.id, name: ex.name, res: h.results[ex.id] }))
+                            : [];
+
+                        return (
+                            <div key={i} className="bg-[#161616] p-5 md:p-6 rounded-2xl border border-gray-800 hover:bg-gray-800/50 transition border-l-4 border-red-600">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <div className="text-red-500 font-black text-[10px] md:text-xs uppercase italic">{h.date}</div>
+                                        <div className="text-white font-black text-lg md:text-xl uppercase italic tracking-tight truncate">{workoutPlan?.title || 'Trening'}</div>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 text-[10px] md:text-xs">
+                                    {resultsToShow.map((item: any) => (
+                                        <div key={item.id} className="flex flex-col border-b border-gray-800 pb-2">
+                                            <span className="text-gray-500 font-black uppercase text-[9px] mb-1 tracking-tight truncate">
+                                                {item.name}
+                                            </span>
+                                            <span className="text-white font-mono break-words leading-relaxed">
+                                                {item.res}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-2 text-[10px] md:text-xs">
-                                {Object.entries(h.results).map(([exId, res]: any) => (
-                                    <div key={exId} className="flex justify-between border-b border-gray-800 pb-1">
-                                        <span className="text-gray-500 truncate pr-4">{selectedClient.plan?.[h.workoutId]?.exercises.find((e:any)=>e.id===exId)?.name || 'Ćwiczenie'}</span>
-                                        <span className="text-white font-mono shrink-0">{res}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     {flatHistory.length === 0 && <div className="text-center py-20 opacity-20 font-black italic uppercase">Brak historii</div>}
                 </div>
               </div>
@@ -887,12 +973,31 @@ export default function CoachDashboard() {
                         </div>
                     ) : (
                         <div className="bg-[#111] p-4 md:p-8 rounded-3xl border border-yellow-600/50 shadow-2xl">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-10">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-10 relative">
                                 <div>
                                     <h3 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter truncate">{selectedClient.plan[activeTraining.workoutId].title}</h3>
                                     <p className="text-yellow-500 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1">SESJA TRENINGOWA NA ŻYWO</p>
                                 </div>
+                                
+                                {/* REST TIMER BOX - JAK U PODOPIECZNEGO */}
+                                <div className="bg-black/50 border-2 border-blue-500/30 rounded-2xl p-4 flex flex-col items-center justify-center min-w-[120px] transition-all">
+                                    {restTimer.timeLeft !== null ? (
+                                        <div className="text-center animate-pulse" onClick={stopRestTimer}>
+                                            <span className="text-[10px] font-black text-blue-400 uppercase italic leading-none">Przerwa</span>
+                                            <div className="text-4xl font-black text-blue-500 font-mono tracking-tighter">{restTimer.timeLeft}s</div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center opacity-10">
+                                            <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">Ready</span>
+                                            <div className="text-4xl font-black text-gray-600 font-mono tracking-tighter">--</div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 <div className="flex items-center space-x-3 md:space-x-4 w-full sm:w-auto">
+                                    <button onClick={() => setModalType('coach-audio-settings')} className="text-gray-500 hover:text-white transition-colors p-3 bg-gray-900 rounded-xl border border-gray-800">
+                                        <i className="fas fa-cog text-xl"></i>
+                                    </button>
                                     <button onClick={() => setActiveTraining(null)} className="text-gray-500 hover:text-white font-bold text-[10px] md:text-xs uppercase italic flex-1 sm:flex-none py-3">Anuluj</button>
                                     <button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-6 md:px-10 py-3 md:py-5 rounded-2xl font-black text-white text-xs md:text-sm uppercase italic shadow-2xl transition transform active:scale-95 flex-1 sm:flex-none">ZAKOŃCZ I ZAPISZ</button>
                                 </div>
@@ -943,7 +1048,6 @@ export default function CoachDashboard() {
                                                 )}
                                             </div>
 
-                                            {/* OSTATNIO - tak jak w panelu podopiecznego */}
                                             <div className="bg-gray-900 bg-opacity-50 p-3 rounded-xl text-[10px] md:text-xs mb-4 border border-gray-800 flex items-center">
                                                 <span className="text-red-400 font-black uppercase italic mr-2">OSTATNIO:</span> 
                                                 <span className="text-gray-400 font-mono">{lastResultStr}</span>
@@ -1029,24 +1133,60 @@ export default function CoachDashboard() {
             )}
 
             {activeTab === 'cardio' && (
-              <div className="space-y-6 animate-fade-in">
-                <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter">Aktywność Dodatkowa</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {(selectedClient.extras?.cardio || []).sort((a:any, b:any) => b.date.localeCompare(a.date)).map((c: any) => (
-                        <div key={c.id} className={`bg-[#161616] p-5 md:p-6 rounded-2xl border border-gray-800 border-l-4 ${c.type === 'mobility' ? 'border-purple-600' : c.type === 'fight' ? 'border-sky-500' : 'border-green-600'}`}>
-                            <div className="flex items-center space-x-4">
-                                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-lg md:text-xl shadow-lg ${c.type === 'mobility' ? 'bg-purple-900/20 text-purple-500' : c.type === 'fight' ? 'bg-sky-900/20 text-sky-500' : 'bg-green-900/20 text-green-500'}`}>
-                                    <i className={`fas ${c.type === 'mobility' ? 'fa-universal-access' : c.type === 'fight' ? 'fa-hand-fist' : 'fa-running'}`}></i>
-                                </div>
-                                <div className="min-w-0">
-                                    <div className="text-white font-black uppercase italic text-sm truncate">{c.type.toUpperCase()}</div>
-                                    <div className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase truncate">{c.date} • {c.duration}</div>
-                                </div>
+              <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+                <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter mb-8">Dziennik Aktywności</h3>
+                
+                <div className="space-y-12">
+                    {groupedCardio.length > 0 ? groupedCardio.map((group, gIdx) => (
+                        <div key={gIdx}>
+                            <div className="flex items-center justify-between border-b border-gray-800 pb-2 mb-4 px-1">
+                                <span className="text-xs font-black text-gray-500 uppercase tracking-widest italic">TYDZIEŃ: <span className="text-white ml-2">{group.label}</span></span>
+                                <span className="text-[10px] font-black px-3 py-1 rounded-full bg-green-900/30 text-green-500 border border-green-900/50 uppercase">{group.count} sesje</span>
                             </div>
-                            {c.notes && <div className="mt-4 p-3 bg-black/40 rounded-xl text-[9px] md:text-[10px] text-gray-400 italic break-words">"{c.notes}"</div>}
+                            
+                            <div className="space-y-3">
+                                {group.items.map((session: any) => {
+                                    const info = cardioTypeInfo(session.type);
+                                    return (
+                                        <div key={session.id} className="bg-[#161616] p-4 rounded-2xl border border-gray-800 flex items-center justify-between hover:bg-gray-800/30 transition group shadow-sm">
+                                            <div className="flex items-center space-x-4">
+                                                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-inner border border-gray-700/50 ${info.color.replace('bg-', 'bg-opacity-20 ')} ${info.text}`}>
+                                                    <i className={`fas ${info.icon}`}></i>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-white font-black uppercase italic text-sm tracking-tight">{info.label}</div>
+                                                    <div className="text-[10px] md:text-xs text-gray-500 font-bold uppercase mt-0.5 flex items-center flex-wrap gap-2">
+                                                        <span>{session.date}</span>
+                                                        <span className="opacity-30">•</span>
+                                                        <span className="text-gray-300">{session.duration}</span>
+                                                        {session.type === 'spacer' && session.steps && (
+                                                            <span className="bg-green-900/40 text-green-500 px-2 py-0.5 rounded font-black text-[9px] border border-green-900/50">{session.steps} kroków</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center">
+                                                {session.notes && (
+                                                    <div className="hidden lg:block max-w-[150px] mr-4 text-[9px] text-gray-600 italic truncate" title={session.notes}>
+                                                        "{session.notes}"
+                                                    </div>
+                                                )}
+                                                <button 
+                                                    onClick={() => deleteCardioSession(session.id)}
+                                                    className="text-gray-800 hover:text-red-500 p-3 transition active:scale-90"
+                                                >
+                                                    <i className="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    ))}
-                    {(selectedClient.extras?.cardio || []).length === 0 && <div className="col-span-full text-center py-20 opacity-20 font-black italic uppercase">Brak aktywności</div>}
+                    )) : (
+                        <div className="text-center py-20 opacity-20 font-black italic uppercase">Brak zapisanych aktywności</div>
+                    )}
                 </div>
               </div>
             )}
@@ -1105,9 +1245,83 @@ export default function CoachDashboard() {
 
       {modalType && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 md:p-6 animate-fade-in">
-          <div className="bg-[#161616] border border-gray-800 rounded-3xl p-6 md:p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
+          <div className={`bg-[#161616] border border-gray-800 rounded-3xl p-6 md:p-10 ${modalType === 'coach-audio-settings' ? 'max-w-md' : 'max-w-sm'} w-full shadow-2xl relative overflow-hidden`}>
             <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
-            {modalType === 'add-coach' || modalType === 'add-client' ? (
+            
+            {modalType === 'coach-audio-settings' ? (
+              <div className="space-y-6">
+                <h3 className="text-xl md:text-2xl font-black text-white italic uppercase mb-6 tracking-tight flex items-center">
+                    <i className="fas fa-cog text-blue-500 mr-3"></i> Ustawienia Dźwięku
+                </h3>
+                
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-black/50 rounded-2xl border border-gray-800">
+                        <div>
+                            <div className="text-sm font-black text-white uppercase italic tracking-widest">Automatyczna przerwa</div>
+                            <div className="text-[10px] text-gray-500 font-bold uppercase">Stoper po odhaczeniu serii</div>
+                        </div>
+                        <button 
+                            onClick={() => updateSettings({ ...settings, autoRestTimer: !settings.autoRestTimer })}
+                            className={`w-12 h-6 rounded-full transition-all relative shadow-inner ${settings.autoRestTimer ? 'bg-red-600' : 'bg-gray-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.autoRestTimer ? 'left-7' : 'left-1'}`}></div>
+                        </button>
+                    </div>
+
+                    <div className="p-4 bg-black/50 rounded-2xl border border-gray-800">
+                        <div className="text-sm font-black text-white uppercase italic tracking-widest mb-4">Rodzaj Dźwięku</div>
+                        <div className="flex items-center space-x-3">
+                            <select 
+                                value={settings.soundType} 
+                                onChange={(e) => updateSettings({ ...settings, soundType: e.target.value as any })}
+                                className="flex-grow bg-black text-white text-xs font-bold p-3 rounded-xl border border-gray-700 outline-none uppercase"
+                            >
+                                <option value="bell">1. Classic Bell</option>
+                                <option value="double_bell">2. Double Bell</option>
+                                <option value="chord">3. Soft Chord</option>
+                                <option value="cosmic">4. Cosmic Tone</option>
+                                <option value="gong">5. Deep Gong</option>
+                                <option value="victory">6. Victory Up</option>
+                                <option value="siren">7. Syrena (Głośna)</option>
+                                <option value="school_bell">8. Dzwonek Szkolny</option>
+                            </select>
+                            <button 
+                                onClick={playAlarm}
+                                className="bg-gray-800 hover:bg-gray-700 text-white p-3 rounded-xl border border-gray-700 shadow-lg active:scale-95 transition"
+                            >
+                                <i className="fas fa-play text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-4 bg-black/50 rounded-2xl border border-gray-800">
+                        <div className="text-sm font-black text-white uppercase italic tracking-widest mb-4">Głośność Alarmu</div>
+                        <div className="flex items-center space-x-4">
+                            <i className="fas fa-volume-down text-gray-500 text-sm"></i>
+                            <input 
+                                type="range" 
+                                min="0" 
+                                max="1" 
+                                step="0.1" 
+                                value={settings.volume !== undefined ? settings.volume : 0.5} 
+                                onChange={(e) => updateSettings({ ...settings, volume: parseFloat(e.target.value) })}
+                                onMouseUp={() => playAlarm()}
+                                onTouchEnd={() => playAlarm()}
+                                className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                            />
+                            <i className="fas fa-volume-up text-gray-500 text-sm"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={() => setModalType(null)} 
+                    className="w-full bg-blue-600 hover:bg-blue-700 py-4 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95 mt-4"
+                >
+                    Zapisz i Zamknij
+                </button>
+              </div>
+            ) : modalType === 'add-coach' || modalType === 'add-client' ? (
               <>
                 <h3 className="text-xl md:text-2xl font-black text-white italic uppercase mb-6 md:mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3>
                 <div className="space-y-4 md:space-y-5">

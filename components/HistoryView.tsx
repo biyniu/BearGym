@@ -237,13 +237,14 @@ export default function HistoryView() {
                      
                      {isOpen && (
                        <div className="bg-gray-900 p-4 border-t border-gray-700 text-sm animate-fade-in cursor-default">
-                         <ul className="space-y-2">
-                           {Object.entries(session.results).map(([exId, res]) => {
-                             const exName = planData.exercises.find(e => e.id === exId)?.name || exId;
+                         <ul className="space-y-4">
+                           {planData.exercises.map(ex => {
+                             const res = session.results[ex.id];
+                             if (!res) return null;
                              return (
-                               <li key={exId} className="border-b border-gray-800 pb-2 flex justify-between last:border-0">
-                                 <div className="text-gray-400 text-xs w-1/2 pr-2">{exName}</div>
-                                 <div className="text-white font-mono text-xs w-1/2 text-right">{res}</div>
+                               <li key={ex.id} className="border-b border-gray-800 pb-2 flex flex-col last:border-0">
+                                 <div className="text-gray-500 font-black uppercase text-[9px] mb-1 tracking-tight">{ex.name}</div>
+                                 <div className="text-white font-mono text-xs break-words leading-relaxed">{res}</div>
                                </li>
                              );
                            })}

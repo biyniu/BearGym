@@ -67,12 +67,13 @@ export interface BodyMeasurement {
   thigh: string;
 }
 
-export type CardioType = 'rowerek' | 'bieznia' | 'schody' | 'orbitrek' | 'mobility' | 'fight';
+export type CardioType = 'rowerek' | 'bieznia' | 'schody' | 'orbitrek' | 'mobility' | 'fight' | 'spacer';
 
 export interface CardioSession {
   id: string;
   date: string;
   type: CardioType;
   duration: string; // np. "30 min"
+  steps?: string;   // np. "10000"
   notes?: string;
 }

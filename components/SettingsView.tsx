@@ -88,7 +88,7 @@ export default function SettingsView() {
     if (!selectedWorkoutId) return;
     setConfirmModal({
         isOpen: true,
-        message: `Czy na pewno chcesz usunąć cały plan "${workouts[selectedWorkoutId].title}"?`,
+        message: `Czy na pewno chcesz usunąć cały plan "${workouts[selectedWorkoutId].title}" wraz z jego historią?`,
         action: performDeleteWorkout
     });
   };
@@ -96,7 +96,18 @@ export default function SettingsView() {
   const performDeleteWorkout = () => {
     const newWorkouts = { ...workouts };
     delete newWorkouts[selectedWorkoutId];
+    
+    // USUWANIE HISTORII Z LOCAL STORAGE DLA TEGO TRENINGU
+    localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_history_${selectedWorkoutId}`);
+    
+    // Wyzwalany jest syncData('plan') wewnątrz updateWorkouts
+    // oraz syncData('history') zostanie wywołany automatycznie przy następnej operacji, 
+    // ponieważ scrapuje on localStorage.
     updateWorkouts(newWorkouts);
+    
+    // Wymuszamy synchronizację czystej historii
+    syncData('history', null);
+
     setSelectedWorkoutId("");
     setConfirmModal(null);
   };
@@ -163,11 +174,8 @@ export default function SettingsView() {
                 const c = importedCardioRaw ? JSON.parse(importedCardioRaw) : [];
 
                 // 3. Wymuszamy synchronizację z Firebase, aby chmura "zauważyła" import
-                // Używamy bezpośrednio remoteStorage, aby mieć pewność zapisu przed przeładowaniem
                 await remoteStorage.saveToCloud(importedClientCode, 'plan', w);
                 
-                // Synchronizacja historii (App.tsx syncData zbiera wszystko z prefiksem historii)
-                // Musimy tu zasymulować to co robi App.syncData
                 const allHistory: Record<string, any[]> = {};
                 const prefix = `${CLIENT_CONFIG.storageKey}_history_`;
                 for (let i = 0; i < localStorage.length; i++) {
@@ -179,7 +187,6 @@ export default function SettingsView() {
                 }
                 await remoteStorage.saveToCloud(importedClientCode, 'history', allHistory);
                 
-                // Synchronizacja extras
                 await remoteStorage.saveToCloud(importedClientCode, 'extras', {
                     measurements: m,
                     cardio: c
@@ -234,7 +241,6 @@ export default function SettingsView() {
                 />
             </div>
             
-            {/* NOWA SEKCJA WAGOWA */}
             <div className="grid grid-cols-3 gap-3 bg-gray-900/50 p-3 rounded-xl border border-gray-800">
                 <div>
                     <label className="text-[9px] font-bold text-gray-500 uppercase block mb-1 text-center">Waga Start</label>
@@ -362,7 +368,6 @@ export default function SettingsView() {
                  </div>
                </div>
                
-               {/* Volume Slider */}
                <div className="flex items-center space-x-3 mt-4 pt-2 border-t border-gray-800">
                    <i className="fas fa-volume-down text-gray-500 text-xs"></i>
                    <input 
@@ -476,7 +481,6 @@ export default function SettingsView() {
         )}
       </div>
 
-      {/* SEKCJA KONTO / WYLOGUJ */}
       <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 border-l-4 border-gray-600">
         <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
           <i className="fas fa-user-lock text-gray-500 mr-2"></i>Konto

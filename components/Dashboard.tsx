@@ -80,11 +80,13 @@ export default function Dashboard() {
           <div className="flex items-center justify-center space-x-3 mb-2">
             <i className="fas fa-heartbeat text-2xl group-hover:scale-110 transition"></i>
             <span className="text-gray-600">|</span>
+            <i className="fas fa-person-walking text-2xl text-green-500 group-hover:scale-110 transition"></i>
+            <span className="text-gray-600">|</span>
             <i className="fas fa-universal-access text-2xl text-purple-500 group-hover:scale-110 transition"></i>
             <span className="text-gray-600">|</span>
             <i className="fas fa-hand-fist text-2xl text-sky-400 group-hover:scale-110 transition"></i>
           </div>
-          <span className="text-xs font-black uppercase italic tracking-tighter">Cardio, Mobility & Fight</span>
+          <span className="text-xs font-black uppercase italic tracking-tighter">Cardio | Spacer | Mobility | Fight</span>
         </button>
       </div>
     </div>
@@ -98,9 +100,9 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
     const daysShort = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
 
     const { dayStatus, lastSessionStats } = useMemo(() => {
-        const status: Record<string, { T: boolean; C: boolean; M: boolean; F: boolean }> = {};
+        const status: Record<string, { T: boolean; C: boolean; M: boolean; F: boolean; S: boolean }> = {};
         let allEntries: any[] = [];
-        const ensureDate = (d: string) => { if (!status[d]) status[d] = { T: false, C: false, M: false, F: false }; };
+        const ensureDate = (d: string) => { if (!status[d]) status[d] = { T: false, C: false, M: false, F: false, S: false }; };
         
         Object.keys(workouts).forEach(id => {
             const hist = externalHistory ? (externalHistory[id] || []) : storage.getHistory(id);
@@ -119,6 +121,7 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
             ensureDate(datePart);
             if (c.type === 'mobility') status[datePart].M = true;
             else if (c.type === 'fight') status[datePart].F = true;
+            else if (c.type === 'spacer') status[datePart].S = true;
             else status[datePart].C = true;
         });
         
@@ -185,7 +188,8 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
                                 const status = dayStatus[`${dStr}.${mStr}.${year}`];
                                 const activeTypes = [];
                                 if (status?.T) activeTypes.push({ color: 'bg-red-600', letter: 'T' });
-                                if (status?.C) activeTypes.push({ color: 'bg-green-500', letter: 'C' });
+                                if (status?.C) activeTypes.push({ color: 'bg-red-500', letter: 'C' });
+                                if (status?.S) activeTypes.push({ color: 'bg-green-500', letter: 'S' });
                                 if (status?.M) activeTypes.push({ color: 'bg-purple-600', letter: 'M' });
                                 if (status?.F) activeTypes.push({ color: 'bg-sky-400', letter: 'F' });
                                 return (

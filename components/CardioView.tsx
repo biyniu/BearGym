@@ -10,7 +10,7 @@ declare var html2pdf: any;
 export default function CardioView() {
   const { syncData } = useContext(AppContext);
   const [sessions, setSessions] = useState<CardioSession[]>(storage.getCardioSessions());
-  const [activeTab, setActiveTab] = useState<'cardio' | 'mobility' | 'fight'>('cardio');
+  const [activeTab, setActiveTab] = useState<'cardio' | 'spacer' | 'mobility' | 'fight'>('cardio');
   
   // Custom Modals State
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; action: () => void } | null>(null);
@@ -21,6 +21,7 @@ export default function CardioView() {
     date: new Date().toISOString().split('T')[0],
     type: 'rowerek' as CardioType,
     duration: '',
+    steps: '',
     notes: ''
   });
   
@@ -41,13 +42,14 @@ export default function CardioView() {
     }
     
     // Ustalanie typu aktywności na podstawie wybranej zakładki
-    const finalType = activeTab === 'mobility' ? 'mobility' : activeTab === 'fight' ? 'fight' : form.type;
+    const finalType = activeTab === 'mobility' ? 'mobility' : activeTab === 'fight' ? 'fight' : activeTab === 'spacer' ? 'spacer' : form.type;
 
     const newSession: CardioSession = {
       id: Date.now().toString(),
       date: form.date,
       type: finalType,
       duration: form.duration,
+      steps: activeTab === 'spacer' ? form.steps : undefined,
       notes: form.notes
     };
 
@@ -68,11 +70,12 @@ export default function CardioView() {
     }
 
     // 3. Reset formularza i sukces
-    setForm(prev => ({ ...prev, duration: '', notes: '' }));
+    setForm(prev => ({ ...prev, duration: '', steps: '', notes: '' }));
     
     let typeLabel = 'Cardio';
     if (finalType === 'mobility') typeLabel = 'Mobility';
     else if (finalType === 'fight') typeLabel = 'Fight';
+    else if (finalType === 'spacer') typeLabel = 'Spacer';
     else typeLabel = cardioTypes.find(c => c.value === finalType)?.label || 'Cardio';
 
     setSuccessMessage(`Zapisano trening: ${typeLabel} (${form.duration})`);
@@ -160,29 +163,35 @@ export default function CardioView() {
         </button>
       </div>
 
-      {/* TABS SWITCHER */}
-      <div className="flex bg-[#1e1e1e] p-1 rounded-xl mb-6 border border-gray-800 space-x-1">
+      {/* TABS SWITCHER - ORDER: Cardio | Spacer | Mobility | Fight */}
+      <div className="flex bg-[#1e1e1e] p-1 rounded-xl mb-6 border border-gray-800 space-x-1 overflow-x-auto scrollbar-hide">
         <button 
             onClick={() => setActiveTab('cardio')}
-            className={`flex-1 py-3 rounded-lg text-xs font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'cardio' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+            className={`flex-1 min-w-[80px] py-3 rounded-lg text-[10px] font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'cardio' ? 'bg-red-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
         >
             <i className="fas fa-heartbeat"></i> <span>Cardio</span>
         </button>
         <button 
+            onClick={() => setActiveTab('spacer')}
+            className={`flex-1 min-w-[80px] py-3 rounded-lg text-[10px] font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'spacer' ? 'bg-green-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+        >
+            <i className="fas fa-person-walking"></i> <span>Spacer</span>
+        </button>
+        <button 
             onClick={() => setActiveTab('mobility')}
-            className={`flex-1 py-3 rounded-lg text-xs font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'mobility' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+            className={`flex-1 min-w-[80px] py-3 rounded-lg text-[10px] font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'mobility' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
         >
             <i className="fas fa-universal-access"></i> <span>Mobility</span>
         </button>
         <button 
             onClick={() => setActiveTab('fight')}
-            className={`flex-1 py-3 rounded-lg text-xs font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'fight' ? 'bg-sky-500 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
+            className={`flex-1 min-w-[80px] py-3 rounded-lg text-[10px] font-black uppercase italic transition flex items-center justify-center space-x-2 ${activeTab === 'fight' ? 'bg-sky-500 text-white shadow-lg' : 'text-gray-500 hover:text-white'}`}
         >
             <i className="fas fa-hand-fist"></i> <span>Fight</span>
         </button>
       </div>
 
-      <div className={`bg-[#1e1e1e] rounded-xl shadow-md p-4 mb-6 border-l-4 ${activeTab === 'cardio' ? 'border-red-600' : activeTab === 'mobility' ? 'border-purple-600' : 'border-sky-500'}`}>
+      <div className={`bg-[#1e1e1e] rounded-xl shadow-md p-4 mb-6 border-l-4 ${activeTab === 'cardio' ? 'border-red-600' : activeTab === 'spacer' ? 'border-green-600' : activeTab === 'mobility' ? 'border-purple-600' : 'border-sky-500'}`}>
         <div className="grid grid-cols-1 gap-4">
             <div>
                 <label className="text-xs text-gray-500 block mb-1">Data</label>
@@ -200,6 +209,22 @@ export default function CardioView() {
                             </button>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {activeTab === 'spacer' && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-xl flex items-center justify-center text-green-400">
+                      <i className="fas fa-person-walking text-4xl mr-4"></i>
+                      <div>
+                          <div className="font-black uppercase italic text-sm">Sesja Spacer</div>
+                          <div className="text-[10px]">Wpisz czas trwania oraz ilość kroków</div>
+                      </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Ilość kroków (np. 10000)</label>
+                    <input type="number" inputMode="numeric" value={form.steps} onChange={e => setForm({...form, steps: e.target.value})} placeholder="0" className="w-full bg-gray-900 text-white p-3 rounded border border-gray-700 focus:border-green-500 outline-none font-bold" />
+                  </div>
                 </div>
             )}
 
@@ -235,7 +260,7 @@ export default function CardioView() {
 
             <button 
                 onClick={handleSave} 
-                className={`w-full text-white py-3 rounded-2xl font-black uppercase italic shadow-lg transition mt-2 active:scale-95 ${activeTab === 'cardio' ? 'bg-green-600 hover:bg-green-700' : activeTab === 'mobility' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-sky-600 hover:bg-sky-700'}`}
+                className={`w-full text-white py-3 rounded-2xl font-black uppercase italic shadow-lg transition mt-2 active:scale-95 ${activeTab === 'cardio' ? 'bg-red-600 hover:bg-red-700' : activeTab === 'spacer' ? 'bg-green-600 hover:bg-green-700' : activeTab === 'mobility' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-sky-600 hover:bg-sky-700'}`}
             >
                 ZAPISZ SESJĘ
             </button>
@@ -260,24 +285,28 @@ export default function CardioView() {
                     </div>
                     <div className="space-y-2">
                         {group.items.map(session => {
+                            const isSpacer = session.type === 'spacer';
                             const isMobility = session.type === 'mobility';
                             const isFight = session.type === 'fight';
-                            let typeInfo = isMobility 
-                                ? { label: 'Mobility / Rozciąganie', icon: 'fa-universal-access' }
-                                : isFight
-                                    ? { label: 'Fight / Sporty Walki', icon: 'fa-hand-fist' }
-                                    : cardioTypes.find(t => t.value === session.type);
+                            let typeInfo = isSpacer
+                                ? { label: 'Spacer / Chodzenie', icon: 'fa-person-walking' }
+                                : isMobility 
+                                    ? { label: 'Mobility / Rozciąganie', icon: 'fa-universal-access' }
+                                    : isFight
+                                        ? { label: 'Fight / Sporty Walki', icon: 'fa-hand-fist' }
+                                        : cardioTypes.find(t => t.value === session.type);
                             
                             return (
-                                <div key={session.id} className={`bg-[#1e1e1e] p-3 rounded-lg border flex justify-between items-center hover:bg-[#252525] transition ${isMobility ? 'border-purple-900/30' : isFight ? 'border-sky-900/30' : 'border-gray-800'}`}>
+                                <div key={session.id} className={`bg-[#1e1e1e] p-3 rounded-lg border flex justify-between items-center hover:bg-[#252525] transition ${isSpacer ? 'border-green-900/30' : isMobility ? 'border-purple-900/30' : isFight ? 'border-sky-900/30' : 'border-red-900/30'}`}>
                                     <div className="flex items-center space-x-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border shrink-0 ${isMobility ? 'bg-purple-900/20 border-purple-700 text-purple-500' : isFight ? 'bg-sky-900/20 border-sky-700 text-sky-500' : 'bg-gray-800 border-gray-700 text-red-500'}`}>
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg border shrink-0 ${isSpacer ? 'bg-green-900/20 border-green-700 text-green-500' : isMobility ? 'bg-purple-900/20 border-purple-700 text-purple-500' : isFight ? 'bg-sky-900/20 border-sky-700 text-sky-500' : 'bg-gray-800 border-gray-700 text-red-500'}`}>
                                             <i className={`fas ${typeInfo?.icon || 'fa-heartbeat'}`}></i>
                                         </div>
                                         <div>
-                                            <div className={`font-bold text-sm ${isMobility ? 'text-purple-300' : isFight ? 'text-sky-300' : 'text-white'}`}>{typeInfo?.label}</div>
+                                            <div className={`font-bold text-sm ${isSpacer ? 'text-green-300' : isMobility ? 'text-purple-300' : isFight ? 'text-sky-300' : 'text-white'}`}>{typeInfo?.label}</div>
                                             <div className="text-gray-400 text-[10px]">
                                                 {session.date} • <span className="text-gray-200 font-mono">{session.duration}</span>
+                                                {isSpacer && session.steps && <span className="ml-2 bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded font-bold">{session.steps} kroków</span>}
                                                 {session.notes && <span className="ml-2 italic opacity-70">- {session.notes}</span>}
                                             </div>
                                         </div>
