@@ -226,7 +226,7 @@ export default function CoachDashboard() {
         for (const match of matches) {
           const weightVal = parseFloat(match[1].replace(',', '.'));
           if (!isNaN(weightVal)) {
-            if (weightVal > maxWeight) maxWeight = weightVal;
+            if (weightVal > maxWeight) weightVal;
             found = true;
           }
         }
@@ -462,7 +462,31 @@ export default function CoachDashboard() {
   };
 
   const startLiveTraining = (workoutId: string) => {
-    setActiveTraining({ workoutId, results: {}, notes: {} });
+    // Synchronizacja początkowych wyników z historią (tak jak u podopiecznego)
+    const lastSession = selectedClient?.history?.[workoutId]?.[0];
+    const initialResults: { [exId: string]: { kg: string, reps: string, time: string }[] } = {};
+    
+    if (lastSession && lastSession.results) {
+        selectedClient.plan[workoutId].exercises.forEach((ex: any) => {
+            const lastResStr = lastSession.results[ex.id];
+            if (lastResStr) {
+                const cleanResult = lastResStr.replace(/\[Note:.*?\]/g, '');
+                const setStrings = cleanResult.split('|');
+                initialResults[ex.id] = setStrings.map(s => {
+                    const kgMatch = s.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
+                    const repsMatch = s.match(/(?:x\s*|(\d+)\s*p)(\d+)?/i);
+                    const timeMatch = s.match(/(\d+)\s*s/i);
+                    return {
+                        kg: kgMatch ? kgMatch[1] : '',
+                        reps: repsMatch ? (repsMatch[2] || repsMatch[1]) : '',
+                        time: timeMatch ? timeMatch[1] : ''
+                    };
+                });
+            }
+        });
+    }
+
+    setActiveTraining({ workoutId, results: initialResults, notes: {} });
     setActiveTab('training');
   };
 
@@ -902,10 +926,11 @@ export default function CoachDashboard() {
                                 {selectedClient.plan[activeTraining.workoutId].exercises.map((ex: any, exIdx: number) => {
                                     const exType = (ex.type || 'standard').toLowerCase();
                                     const isRepsOnly = exType === 'reps' || exType === 'reps_only';
+                                    const lastResultStr = selectedClient.history?.[activeTraining.workoutId]?.[0]?.results[ex.id] || 'Brak danych';
                                     
                                     return (
                                         <div key={ex.id} className="bg-black/40 p-4 md:p-8 rounded-3xl border border-gray-800 hover:border-gray-700 transition-all shadow-lg">
-                                            <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
+                                            <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
                                                 <div>
                                                     <span className="text-red-500 font-black text-[10px] uppercase italic tracking-widest">Ćwiczenie {exIdx+1}</span>
                                                     <h4 className="text-lg md:text-2xl font-black text-white uppercase italic tracking-tight">{ex.name}</h4>
@@ -916,6 +941,12 @@ export default function CoachDashboard() {
                                                         <i className="fab fa-youtube"></i>
                                                     </a>
                                                 )}
+                                            </div>
+
+                                            {/* OSTATNIO - tak jak w panelu podopiecznego */}
+                                            <div className="bg-gray-900 bg-opacity-50 p-3 rounded-xl text-[10px] md:text-xs mb-4 border border-gray-800 flex items-center">
+                                                <span className="text-red-400 font-black uppercase italic mr-2">OSTATNIO:</span> 
+                                                <span className="text-gray-400 font-mono">{lastResultStr}</span>
                                             </div>
 
                                             <div className="grid grid-cols-4 gap-2 text-center mb-8 bg-black/50 p-3 rounded-xl border border-gray-800">
