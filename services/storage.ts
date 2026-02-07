@@ -8,7 +8,9 @@ import {
   setDoc, 
   updateDoc, 
   collection, 
-  getDocs 
+  getDocs,
+  query,
+  where
 } from 'firebase/firestore';
 
 // Inicjalizacja Firebase
@@ -35,8 +37,104 @@ export const parseDateStr = (dateStr: string): number => {
 
 export const remoteStorage = {
   /**
-   * Pobiera dane klienta z Firestore
+   * Sprawdza czy dany kod to Super-Admin czy Trener
    */
+  checkCoachAuth: async (code: string) => {
+    try {
+      const cleanCode = code.trim().toUpperCase();
+      // 1. Sprawdź Super-Admina
+      if (cleanCode === CLIENT_CONFIG.coachMasterCode) {
+        return { success: true, role: 'super-admin' };
+      }
+      // 2. Sprawdź w kolekcji coaches
+      const coachRef = doc(db, "coaches", cleanCode);
+      const coachSnap = await getDoc(coachRef);
+      if (coachSnap.exists()) {
+        return { success: true, role: 'coach', name: coachSnap.data().name };
+      }
+      return { success: false, error: "Błędny kod autoryzacji." };
+    } catch (e) {
+      return { success: false, error: "Błąd połączenia z bazą." };
+    }
+  },
+
+  /**
+   * Super-Admin: Pobiera listę wszystkich trenerów
+   */
+  fetchAllCoaches: async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "coaches"));
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (e) { return []; }
+  },
+
+  /**
+   * Trener/Admin: Pobiera listę podopiecznych (opcjonalnie filtrowaną po trenerze)
+   */
+  fetchClients: async (coachId?: string) => {
+    try {
+      let q;
+      if (coachId) {
+        q = query(collection(db, "clients"), where("coachId", "==", coachId.toUpperCase()));
+      } else {
+        q = collection(db, "clients");
+      }
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        code: doc.id,
+        name: doc.data().name || "Bez imienia",
+        coachId: doc.data().coachId
+      }));
+    } catch (e) { return []; }
+  },
+
+  /**
+   * Super-Admin: Tworzy nowego trenera
+   */
+  createNewCoach: async (code: string, name: string) => {
+    try {
+      const cleanCode = code.trim().toUpperCase();
+      const coachRef = doc(db, "coaches", cleanCode);
+      await setDoc(coachRef, { 
+        name, 
+        adminId: CLIENT_CONFIG.coachMasterCode,
+        createdAt: Date.now()
+      });
+      return { success: true };
+    } catch (e) { return { success: false }; }
+  },
+
+  /**
+   * Tworzy nowego klienta przypisanego do trenera
+   */
+  createNewClient: async (code: string, name: string, coachId: string) => {
+    try {
+      const cleanCode = code.trim().toUpperCase();
+      const docRef = doc(db, "clients", cleanCode);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        return { success: false, error: "Ten kod klienta jest już zajęty." };
+      }
+
+      await setDoc(docRef, { 
+        name, 
+        code: cleanCode, 
+        coachId: coachId.toUpperCase(),
+        plan: {}, 
+        history: {}, 
+        extras: { measurements: [], cardio: [] } 
+      });
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: "Błąd podczas tworzenia klienta." };
+    }
+  },
+
   fetchUserData: async (code: string) => {
     try {
       const cleanCode = code.trim().toUpperCase();
@@ -54,97 +152,29 @@ export const remoteStorage = {
     }
   },
 
-  /**
-   * Panel Trenera: Pobiera listę wszystkich podopiecznych
-   */
-  fetchCoachOverview: async (masterCode: string) => {
+  fetchCoachClientDetail: async (clientId: string) => {
     try {
-      if (masterCode !== CLIENT_CONFIG.coachMasterCode) {
-        return { success: false, error: "Błędny kod trenera." };
-      }
-      
-      const querySnapshot = await getDocs(collection(db, "clients"));
-      const clients = querySnapshot.docs.map(doc => ({
-        code: doc.id,
-        name: doc.data().name || "Bez imienia"
-      }));
-
-      return { success: true, clients };
-    } catch (e) {
-      return { success: false };
-    }
-  },
-
-  /**
-   * Panel Trenera: Tworzy nowego klienta w bazie
-   */
-  createNewClient: async (masterCode: string, code: string, name: string) => {
-    try {
-      if (masterCode !== CLIENT_CONFIG.coachMasterCode) return { success: false, error: "Brak autoryzacji." };
-      const cleanCode = code.trim().toUpperCase();
-      const docRef = doc(db, "clients", cleanCode);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        return { success: false, error: "Ten kod klienta jest już zajęty." };
-      }
-
-      await setDoc(docRef, { 
-        name, 
-        code: cleanCode, 
-        plan: {}, 
-        history: {}, 
-        extras: { measurements: [], cardio: [] } 
-      });
-      return { success: true };
-    } catch (e) {
-      console.error("Firebase Create Error:", e);
-      return { success: false, error: "Błąd serwera podczas tworzenia klienta." };
-    }
-  },
-
-  /**
-   * Panel Trenera: Pobiera pełne dane konkretnego podopiecznego
-   */
-  fetchCoachClientDetail: async (masterCode: string, clientId: string) => {
-    try {
-      if (masterCode !== CLIENT_CONFIG.coachMasterCode) return { success: false };
-      
       const docRef = doc(db, "clients", clientId.toUpperCase());
       const docSnap = await getDoc(docRef);
-
       if (docSnap.exists()) {
         return { success: true, ...docSnap.data(), code: clientId.toUpperCase() };
       }
       return { success: false };
-    } catch (e) {
-      return { success: false };
-    }
+    } catch (e) { return { success: false }; }
   },
 
-  /**
-   * Zapisuje dane do Firestore (Plan, Historia lub Extra)
-   */
   saveToCloud: async (code: string, type: string, data: any) => {
     try {
       const cleanCode = code.toUpperCase();
       const docRef = doc(db, "clients", cleanCode);
-      
-      // Sprawdzamy czy dokument istnieje
       const docSnap = await getDoc(docRef);
-      
       if (!docSnap.exists()) {
-        // Jeśli nie istnieje (nowy klient), tworzymy go
         await setDoc(docRef, { [type]: data });
       } else {
-        // Jeśli istnieje, aktualizujemy tylko konkretne pole
         await updateDoc(docRef, { [type]: data });
       }
       return true;
-    } catch (e) {
-      console.error("Firebase Save Error:", e);
-      return false;
-    }
+    } catch (e) { return false; }
   }
 };
 
