@@ -3,7 +3,7 @@ export const CLIENT_CONFIG = {
   name: "BEAR GYM",
   storageKey: 'bear_gym_cloud_v1',
   geminiApiKey: process.env.API_KEY || "",
-  geminiModel: "gemini-2.5-flash",
+  geminiModel: "gemini-3-flash-preview",
   
   // TWOJA KONFIGURACJA FIREBASE
   firebaseConfig: {

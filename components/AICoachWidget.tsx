@@ -167,21 +167,12 @@ export default function AICoachWidget() {
     setLoading(true);
 
     try {
-        const apiKey = process.env.API_KEY;
-        
-        if (!apiKey || apiKey.length < 10) {
-            console.error("Missing API Key.");
-            setTimeout(() => {
-                setMessages(prev => [...prev, { role: 'model', text: "Błąd konfiguracji: Brak klucza API. Upewnij się, że dodałeś zmienną 'API_KEY' w ustawieniach Vercel i wykonałeś Redeploy." }]);
-                setLoading(false);
-            }, 1000);
-            return;
-        }
-
-        const ai = new GoogleGenAI({ apiKey });
+        // Use process.env.API_KEY directly for GoogleGenAI initialization
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         const response = await ai.models.generateContent({
-            model: CLIENT_CONFIG.geminiModel || "gemini-2.5-flash", 
+            // Using gemini-3-flash-preview as recommended for text tasks
+            model: CLIENT_CONFIG.geminiModel || "gemini-3-flash-preview", 
             contents: [
                 ...messages.map(m => ({ role: m.role, parts: [{ text: m.text }] })),
                 { role: 'user', parts: [{ text: userMsg }] }
