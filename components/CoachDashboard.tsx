@@ -27,9 +27,10 @@ export default function CoachDashboard() {
   const [selectedChartWorkoutId, setSelectedChartWorkoutId] = useState<string>("");
 
   const [activeTraining, setActiveTraining] = useState<{workoutId: string, results: { [exId: string]: { kg: string, reps: string }[] }} | null>(null);
-  const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | null>(null);
+  const [modalType, setModalType] = useState<'add-coach' | 'add-client' | 'confirm-delete-client' | 'confirm-delete-coach' | 'excel-import' | null>(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
   const [form, setForm] = useState({ name: '', code: '' });
+  const [excelData, setExcelData] = useState('');
 
   const handleLogin = async () => {
     setLoading(true);
@@ -91,7 +92,6 @@ export default function CoachDashboard() {
       const wIds = Object.keys(res.plan || {});
       if(wIds.length > 0) setSelectedChartWorkoutId(wIds[0]);
       setIsEditingPlan(false);
-      // Wyczyszczenie wyszukiwania po wybraniu osoby, aby pokazać jej panel
       setSearchQuery('');
     }
     setLoading(false);
@@ -256,6 +256,70 @@ export default function CoachDashboard() {
     const updated = { ...editedPlan };
     updated[wId].warmup[wIdx] = { ...updated[wId].warmup[wIdx], [field]: val };
     setEditedPlan(updated);
+  };
+
+  const handleExcelImport = () => {
+    if (!excelData.trim()) return;
+    const rows = excelData.trim().split('\n');
+    const headers = rows[0].split('\t').map(h => h.trim().toLowerCase());
+    
+    // Znajdź indeksy kolumn
+    const idx = {
+        plan: headers.indexOf('plan'),
+        sekcja: headers.indexOf('sekcja'),
+        nazwa: headers.indexOf('nazwa ćwiczenia'),
+        opis: headers.indexOf('opis pl'),
+        serie: headers.indexOf('serie'),
+        powt: headers.indexOf('powt.'),
+        tempo: headers.indexOf('tempo'),
+        rir: headers.indexOf('rir'),
+        przerwa: headers.indexOf('przerwa (s)'),
+        link: headers.indexOf('link yt')
+    };
+
+    const newPlan: any = {};
+    const workoutMap: Record<string, string> = {}; // Tytuł -> ID
+
+    rows.slice(1).forEach((row, i) => {
+        const cols = row.split('\t');
+        const planTitle = cols[idx.plan]?.trim() || "Trening";
+        
+        if (!workoutMap[planTitle]) {
+            const wId = `w_${Date.now()}_${i}`;
+            workoutMap[planTitle] = wId;
+            newPlan[wId] = { title: planTitle, exercises: [], warmup: [] };
+        }
+
+        const wId = workoutMap[planTitle];
+        const isWarmup = cols[idx.sekcja]?.toLowerCase().includes('rozgrzewka') || cols[idx.sekcja]?.toLowerCase().includes('warmup');
+
+        if (isWarmup) {
+            newPlan[wId].warmup.push({
+                name: cols[idx.nazwa] || "Rozgrzewka",
+                pl: cols[idx.opis] || "",
+                reps: cols[idx.powt] || "10 min",
+                link: cols[idx.link] || ""
+            });
+        } else {
+            newPlan[wId].exercises.push({
+                id: `ex_${Date.now()}_${i}`,
+                name: cols[idx.nazwa] || "Ćwiczenie",
+                pl: cols[idx.opis] || "",
+                sets: parseInt(cols[idx.serie]) || 4,
+                reps: cols[idx.powt] || "8-12",
+                tempo: cols[idx.tempo] || "2011",
+                rir: cols[idx.rir] || "2",
+                rest: parseInt(cols[idx.przerwa]) || 90,
+                link: cols[idx.link] || "",
+                type: "standard"
+            });
+        }
+    });
+
+    setEditedPlan(newPlan);
+    setModalType(null);
+    setExcelData('');
+    setIsEditingPlan(true);
   };
 
   const updateLiveResult = (exId: string, sIdx: number, field: 'kg' | 'reps', val: string) => {
@@ -451,6 +515,7 @@ export default function CoachDashboard() {
             {activeTab === 'plan' && (
               <div className="space-y-10">
                 <div className="flex justify-end space-x-3 sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur py-4">
+                   <button onClick={() => setModalType('excel-import')} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black uppercase italic text-[10px] shadow-xl transition active:scale-95"><i className="fas fa-file-excel mr-2"></i> IMPORT Z EXCELA</button>
                    {!isEditingPlan ? (<button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>) : (<><button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button><button onClick={() => setIsEditingPlan(false)} className="bg-gray-800 text-gray-500 px-8 py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button></>)}
                 </div>
                 {Object.entries(editedPlan || {}).map(([wId, workout]: any) => (
@@ -572,7 +637,34 @@ export default function CoachDashboard() {
 
       {modalType && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-6 animate-fade-in">
-          <div className="bg-[#161616] border border-gray-800 rounded-3xl p-10 max-w-sm w-full shadow-2xl relative overflow-hidden"><div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>{modalType === 'add-coach' || modalType === 'add-client' ? (<><h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3><div className="space-y-5"><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" /><input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" /><button onClick={async () => { setLoading(true); if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh(); setLoading(false); }} className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95">UTWÓRZ</button></div></>) : (<div className="text-center"><i className="fas fa-exclamation-triangle text-red-600 text-5xl mb-6"></i><h3 className="text-xl font-black text-white uppercase italic mb-2">Czy na pewno?</h3><p className="text-gray-500 text-xs mb-8">Usunięcie {itemToDelete?.name} spowoduje bezpowrotną utratę danych.</p><div className="flex space-x-4"><button onClick={modalType === 'confirm-delete-client' ? handleDeleteClient : handleDeleteCoach} className="flex-1 bg-red-600 py-4 rounded-xl font-black uppercase italic text-white shadow-xl transition active:scale-95">USUŃ</button><button onClick={() => setModalType(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase italic text-gray-500">ANULUJ</button></div></div>)}<button onClick={() => setModalType(null)} className="w-full text-gray-600 text-[10px] font-black uppercase py-4 mt-2">Zamknij</button></div>
+          <div className="bg-[#161616] border border-gray-800 rounded-3xl p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
+            <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
+            
+            {modalType === 'add-coach' || modalType === 'add-client' ? (
+              <><h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3><div className="space-y-5"><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" /><input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" /><button onClick={async () => { setLoading(true); if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh(); setLoading(false); }} className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95">UTWÓRZ</button></div></>
+            ) : modalType === 'excel-import' ? (
+              <div className="max-w-xl w-full">
+                <h3 className="text-2xl font-black text-white italic uppercase mb-2 tracking-tight">Import z Excela</h3>
+                <p className="text-[10px] text-gray-500 mb-6 uppercase">Zaznacz dane w Excelu (z nagłówkami) i wklej je poniżej.</p>
+                <div className="space-y-4">
+                    <textarea 
+                        value={excelData} 
+                        onChange={e => setExcelData(e.target.value)}
+                        placeholder="Wklej tutaj dane (tab-separated)..."
+                        className="w-full h-64 bg-black border border-gray-800 p-4 rounded-xl text-[10px] text-gray-400 font-mono outline-none focus:border-purple-600 transition"
+                    />
+                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-800 text-[8px] text-gray-600 space-y-1">
+                        <p className="font-bold text-gray-500">WYMAGANE NAGŁÓWKI (KOLEJNOŚĆ DOWOLNA):</p>
+                        <p>Plan | Sekcja | Nazwa Ćwiczenia | Opis PL | Serie | Powt. | Tempo | RIR | Przerwa (s) | Link YT</p>
+                    </div>
+                    <button onClick={handleExcelImport} className="w-full bg-purple-600 hover:bg-purple-700 py-4 rounded-xl font-black uppercase italic text-white shadow-2xl transition active:scale-95">PRZETWÓRZ I ZAIMPORTUJ</button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center"><i className="fas fa-exclamation-triangle text-red-600 text-5xl mb-6"></i><h3 className="text-xl font-black text-white uppercase italic mb-2">Czy na pewno?</h3><p className="text-gray-500 text-xs mb-8">Usunięcie {itemToDelete?.name} spowoduje bezpowrotną utratę danych.</p><div className="flex space-x-4"><button onClick={modalType === 'confirm-delete-client' ? handleDeleteClient : handleDeleteCoach} className="flex-1 bg-red-600 py-4 rounded-xl font-black uppercase italic text-white shadow-xl transition active:scale-95">USUŃ</button><button onClick={() => setModalType(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase italic text-gray-500">ANULUJ</button></div></div>
+            )}
+            <button onClick={() => setModalType(null)} className="w-full text-gray-600 text-[10px] font-black uppercase py-4 mt-2">Zamknij</button>
+          </div>
         </div>
       )}
     </div>
