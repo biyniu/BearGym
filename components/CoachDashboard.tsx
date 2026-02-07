@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import { remoteStorage, parseDateStr, storage } from '../services/storage';
 import { Exercise, WarmupExercise, ExerciseType } from '../types';
@@ -34,6 +33,7 @@ export default function CoachDashboard() {
   
   const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [editedPlan, setEditedPlan] = useState<any>({});
+  const [editingExercise, setEditingExercise] = useState<{ workoutId: string, index: number } | null>(null);
   const [selectedChartWorkoutId, setSelectedChartWorkoutId] = useState<string>("");
 
   const [activeTraining, setActiveTraining] = useState<{
@@ -61,7 +61,6 @@ export default function CoachDashboard() {
       const lastDate = localStorage.getItem(storageKey);
 
       if (lastDate !== today) {
-        // Czyścimy stare serie dla tego klienta/treningu
         const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith(prefix)) localStorage.removeItem(key);
@@ -69,7 +68,6 @@ export default function CoachDashboard() {
         localStorage.setItem(storageKey, today);
         setCoachCompletedSets({});
       } else {
-        // Ładujemy obecne
         const currentSets: Record<string, boolean> = {};
         const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
         Object.keys(localStorage).forEach(key => {
@@ -154,6 +152,7 @@ export default function CoachDashboard() {
       const wIds = Object.keys(res.plan || {});
       if(wIds.length > 0) setSelectedChartWorkoutId(wIds[0]);
       setIsEditingPlan(false);
+      setEditingExercise(null);
       setSearchQuery('');
       setIsMobileSidebarOpen(false);
     }
@@ -321,6 +320,61 @@ export default function CoachDashboard() {
     setEditedPlan(updatedPlan);
   };
 
+  const addWorkoutDay = () => {
+    const title = window.prompt("Nazwa nowego dnia (np. Trening C):");
+    if (!title) return;
+    const id = `w_${Date.now()}`;
+    const newPlan = { ...editedPlan };
+    newPlan[id] = { title, exercises: [], warmup: [], displayOrder: Object.keys(editedPlan).length * 10 };
+    setEditedPlan(newPlan);
+  };
+
+  const deleteWorkoutDay = (id: string) => {
+    if(!window.confirm("Usunąć cały dzień treningowy?")) return;
+    const newPlan = { ...editedPlan };
+    delete newPlan[id];
+    setEditedPlan(newPlan);
+  };
+
+  const updateWorkoutTitle = (id: string, title: string) => {
+    const newPlan = { ...editedPlan };
+    newPlan[id] = { ...newPlan[id], title };
+    setEditedPlan(newPlan);
+  };
+
+  const addExerciseToDay = (wId: string) => {
+    const newPlan = { ...editedPlan };
+    const newEx: Exercise = {
+      id: `ex_${Date.now()}`,
+      name: "Nowe ćwiczenie",
+      pl: "",
+      sets: 3,
+      reps: "8-12",
+      tempo: "2011",
+      rir: "2",
+      rest: 90,
+      link: "",
+      type: "standard"
+    };
+    newPlan[wId].exercises.push(newEx);
+    setEditedPlan(newPlan);
+    setEditingExercise({ workoutId: wId, index: newPlan[wId].exercises.length - 1 });
+  };
+
+  const handleExerciseChange = (wId: string, idx: number, field: keyof Exercise, val: any) => {
+    const newPlan = { ...editedPlan };
+    newPlan[wId].exercises[idx] = { ...newPlan[wId].exercises[idx], [field]: val };
+    setEditedPlan(newPlan);
+  };
+
+  const deleteExerciseFromDay = (wId: string, idx: number) => {
+    if(!window.confirm("Usunąć ćwiczenie?")) return;
+    const newPlan = { ...editedPlan };
+    newPlan[wId].exercises.splice(idx, 1);
+    setEditedPlan(newPlan);
+    setEditingExercise(null);
+  };
+
   const handleExcelImport = () => {
     if (!excelData.trim()) return;
     const rows = excelData.trim().split('\n');
@@ -438,7 +492,6 @@ export default function CoachDashboard() {
     });
     if (success) {
         alert("Zapisano!");
-        // Czyścimy lokalne ptaszki przy kończeniu
         const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
         Object.keys(localStorage).forEach(k => { if(k.startsWith(prefix)) localStorage.removeItem(k); });
         setCoachCompletedSets({});
@@ -568,7 +621,6 @@ export default function CoachDashboard() {
       </aside>
 
       <main className="flex-grow p-4 md:p-8 overflow-y-auto relative">
-        {/* Toggle Button for Desktop Sidebar Collapse */}
         {isDesktopSidebarCollapsed && (
           <button 
             onClick={() => setIsDesktopSidebarCollapsed(false)} 
@@ -614,19 +666,37 @@ export default function CoachDashboard() {
               <div className="space-y-6 md:space-y-10">
                 <div className="flex flex-col sm:flex-row justify-end gap-3 sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur py-4">
                    <button onClick={() => setModalType('excel-import')} className="bg-purple-600 hover:bg-purple-700 text-white px-4 md:px-6 py-3 md:py-4 rounded-2xl font-black uppercase italic text-[9px] md:text-[10px] shadow-xl transition active:scale-95"><i className="fas fa-file-excel mr-2"></i> IMPORT Z EXCELA</button>
-                   {!isEditingPlan ? (<button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>) : (<><button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button><button onClick={() => setIsEditingPlan(false)} className="bg-gray-800 text-gray-500 px-6 md:px-8 py-3 md:py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button></>)}
+                   {!isEditingPlan ? (
+                     <button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>
+                   ) : (
+                     <>
+                       <button onClick={addWorkoutDay} className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 md:px-6 py-3 md:py-4 rounded-2xl font-black uppercase italic text-[9px] md:text-[10px] shadow-xl transition active:scale-95">DODAJ DZIEŃ</button>
+                       <button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button>
+                       <button onClick={() => { setIsEditingPlan(false); setEditingExercise(null); }} className="bg-gray-800 text-gray-500 px-6 md:px-8 py-3 md:py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button>
+                     </>
+                   )}
                 </div>
                 {sortedPlanEntries.map(([wId, workout]: any, wIdx) => (
-                  <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-5 md:p-8 shadow-2xl space-y-6 md:space-y-8 animate-fade-in">
+                  <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-5 md:p-8 shadow-2xl space-y-6 md:space-y-8 animate-fade-in relative">
                     <div className="flex justify-between items-center border-b border-gray-800 pb-4 md:pb-6">
                         <div className="flex items-center space-x-3 md:space-x-4">
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-red-600 rounded-xl flex items-center justify-center text-white text-lg md:text-xl shadow-lg"><i className="fas fa-calendar-alt"></i></div>
                             <div className="flex items-center space-x-2 md:space-x-4">
-                                <h3 className="text-xl md:text-3xl font-black text-white italic uppercase tracking-tighter truncate max-w-[150px] md:max-w-none">{workout.title}</h3>
+                                {isEditingPlan ? (
+                                  <input 
+                                    type="text" 
+                                    value={workout.title} 
+                                    onChange={(e) => updateWorkoutTitle(wId, e.target.value)} 
+                                    className="bg-black border border-gray-700 text-white px-3 py-1.5 rounded-lg font-black text-xl uppercase italic outline-none focus:border-red-600"
+                                  />
+                                ) : (
+                                  <h3 className="text-xl md:text-3xl font-black text-white italic uppercase tracking-tighter truncate max-w-[150px] md:max-w-none">{workout.title}</h3>
+                                )}
                                 {isEditingPlan && (
                                     <div className="flex space-x-1 md:space-x-2">
                                         <button onClick={() => moveWorkoutDay(wId, 'up')} className={`text-gray-500 hover:text-white transition p-1.5 md:p-2 bg-gray-800 rounded-lg ${wIdx === 0 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-up text-[10px] md:text-xs"></i></button>
                                         <button onClick={() => moveWorkoutDay(wId, 'down')} className={`text-gray-500 hover:text-white transition p-1.5 md:p-2 bg-gray-800 rounded-lg ${wIdx === sortedPlanEntries.length - 1 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-down text-[10px] md:text-xs"></i></button>
+                                        <button onClick={() => deleteWorkoutDay(wId)} className="text-red-900 hover:text-red-500 transition p-1.5 md:p-2 bg-gray-800 rounded-lg"><i className="fas fa-trash-alt text-[10px] md:text-xs"></i></button>
                                     </div>
                                 )}
                             </div>
@@ -634,11 +704,57 @@ export default function CoachDashboard() {
                     </div>
                     <div className="grid grid-cols-1 gap-3 md:gap-4">
                         {workout.exercises?.map((ex: any, idx: number) => (
-                            <div key={idx} className="bg-black/40 p-4 rounded-xl border border-gray-800">
-                                <div className="font-black text-white text-xs italic uppercase truncate">{idx+1}. {ex.name}</div>
-                                <div className="text-[10px] text-gray-500 mt-1">{ex.sets}s | {ex.reps}p | {ex.tempo} | RIR {ex.rir}</div>
+                            <div key={idx} className={`bg-black/40 p-4 rounded-xl border transition ${editingExercise?.workoutId === wId && editingExercise?.index === idx ? 'border-red-600' : 'border-gray-800'}`}>
+                                {isEditingPlan ? (
+                                  <div className="space-y-4">
+                                     <div className="flex justify-between items-center mb-2">
+                                        <span className="text-red-500 font-bold text-[10px] uppercase">Ćwiczenie {idx+1}</span>
+                                        <button onClick={() => deleteExerciseFromDay(wId, idx)} className="text-red-900 hover:text-red-500"><i className="fas fa-times"></i></button>
+                                     </div>
+                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <input 
+                                          type="text" 
+                                          value={ex.name} 
+                                          onChange={(e) => handleExerciseChange(wId, idx, 'name', e.target.value)} 
+                                          placeholder="Nazwa" 
+                                          className="bg-black border border-gray-700 text-white p-2 rounded text-xs outline-none"
+                                        />
+                                        <input 
+                                          type="text" 
+                                          value={ex.pl} 
+                                          onChange={(e) => handleExerciseChange(wId, idx, 'pl', e.target.value)} 
+                                          placeholder="Opis/Notatka" 
+                                          className="bg-black border border-gray-700 text-gray-400 p-2 rounded text-xs outline-none"
+                                        />
+                                     </div>
+                                     <div className="grid grid-cols-5 gap-2">
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Serie</label><input type="number" value={ex.sets} onChange={(e) => handleExerciseChange(wId, idx, 'sets', parseInt(e.target.value))} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Powt.</label><input type="text" value={ex.reps} onChange={(e) => handleExerciseChange(wId, idx, 'reps', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Tempo</label><input type="text" value={ex.tempo} onChange={(e) => handleExerciseChange(wId, idx, 'tempo', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">RIR</label><input type="text" value={ex.rir} onChange={(e) => handleExerciseChange(wId, idx, 'rir', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Przerwa</label><input type="number" value={ex.rest} onChange={(e) => handleExerciseChange(wId, idx, 'rest', parseInt(e.target.value))} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                     </div>
+                                     <input 
+                                       type="text" 
+                                       value={ex.link || ''} 
+                                       onChange={(e) => handleExerciseChange(wId, idx, 'link', e.target.value)} 
+                                       placeholder="Link YouTube" 
+                                       className="w-full bg-black border border-gray-700 text-blue-400 p-2 rounded text-[10px] outline-none"
+                                     />
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="font-black text-white text-xs italic uppercase truncate">{idx+1}. {ex.name}</div>
+                                    <div className="text-[10px] text-gray-500 mt-1">{ex.sets}s | {ex.reps}p | {ex.tempo} | RIR {ex.rir}</div>
+                                  </>
+                                )}
                             </div>
                         ))}
+                        {isEditingPlan && (
+                          <button onClick={() => addExerciseToDay(wId)} className="w-full bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-500 hover:text-white py-3 rounded-xl transition font-black text-[9px] uppercase italic">
+                            <i className="fas fa-plus mr-2"></i> DODAJ ĆWICZENIE
+                          </button>
+                        )}
                     </div>
                   </div>
                 ))}
