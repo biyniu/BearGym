@@ -1,0 +1,21 @@
+{
+  "short_name": "Bear Trener",
+  "name": "Bear Gym Panel Trenera",
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "./#/coach-admin",
+  "display": "standalone",
+  "theme_color": "#ef4444",
+  "background_color": "#121212",
+  "orientation": "portrait"
+}

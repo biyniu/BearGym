@@ -35,31 +35,35 @@ interface AppContextType {
 
 export const AppContext = React.createContext<AppContextType>({} as AppContextType);
 
-// Komponent zarządzający inteligentnym przekierowaniem na podstawie roli
 const ViewRedirector = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Zapamiętujemy rolę na podstawie aktualnej ścieżki
+    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+    
     if (location.pathname === '/coach-admin') {
       localStorage.setItem('bear_gym_role_pref', 'coach');
-    } else if (location.pathname === '/') {
-      localStorage.setItem('bear_gym_role_pref', 'client');
+      if (manifestLink) manifestLink.href = 'manifest-coach.json';
+    } else {
+      // Jeśli nie jesteśmy u trenera, ustawiamy domyślny manifest (dla klienta)
+      if (location.pathname === '/' || location.pathname === '') {
+        localStorage.setItem('bear_gym_role_pref', 'client');
+      }
+      if (manifestLink) manifestLink.href = 'manifest.json';
     }
   }, [location.pathname]);
 
   useEffect(() => {
-    // Jednorazowe sprawdzenie przy starcie aplikacji (np. otwarcie z pulpitu)
     const pref = localStorage.getItem('bear_gym_role_pref');
     const isRoot = window.location.hash === '#/' || window.location.hash === '';
-    
-    // Używamy sessionStorage, aby przekierowanie działo się tylko przy nowym "uruchomieniu" apki
-    const sessionRedirectDone = sessionStorage.getItem('init_redirect_done');
+    const initRedirectDone = sessionStorage.getItem('init_redirect_done');
 
-    if (isRoot && pref === 'coach' && !sessionRedirectDone) {
+    if (isRoot && pref === 'coach' && !initRedirectDone) {
       sessionStorage.setItem('init_redirect_done', 'true');
       navigate('/coach-admin', { replace: true });
+    } else if (isRoot && !initRedirectDone) {
+      sessionStorage.setItem('init_redirect_done', 'true');
     }
   }, [navigate]);
 
