@@ -206,28 +206,28 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
     for(let i=1; i<=daysInMonth; i++) days.push(i);
 
     return (
-        <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-4 border border-gray-800 relative overflow-hidden transition-all">
-            <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2 relative z-10">
-                <div className="flex space-x-4">
-                    <button onClick={() => setViewMode('calendar')} className={`text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'calendar' ? 'text-red-500' : 'text-gray-600'}`}>Kalendarz</button>
-                    <button onClick={() => setViewMode('summary')} className={`text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'summary' ? 'text-red-500' : 'text-gray-600'}`}>Ostatni Trening</button>
+        <div className="bg-[#1e1e1e] rounded-xl shadow-md p-2.5 border border-gray-800 relative overflow-hidden transition-all max-w-[270px] mx-auto">
+            <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-1 relative z-10 px-0.5">
+                <div className="flex space-x-2">
+                    <button onClick={() => setViewMode('calendar')} className={`text-[8px] font-black uppercase tracking-widest transition-colors ${viewMode === 'calendar' ? 'text-red-500' : 'text-gray-600'}`}>Kalendarz</button>
+                    <button onClick={() => setViewMode('summary')} className={`text-[8px] font-black uppercase tracking-widest transition-colors ${viewMode === 'summary' ? 'text-red-500' : 'text-gray-600'}`}>Ostatni</button>
                 </div>
                 {viewMode === 'calendar' && (
-                    <div className="flex items-center space-x-2">
-                        <button onClick={prevMonth} className="text-gray-600 hover:text-white"><i className="fas fa-chevron-left text-[10px]"></i></button>
-                        <span className="text-[9px] text-white font-black uppercase italic">{months[month].slice(0,3)} {year}</span>
-                        <button onClick={nextMonth} className="text-gray-600 hover:text-white"><i className="fas fa-chevron-right text-[10px]"></i></button>
+                    <div className="flex items-center space-x-1">
+                        <button onClick={prevMonth} className="text-gray-600 hover:text-white"><i className="fas fa-chevron-left text-[7px]"></i></button>
+                        <span className="text-[7px] text-white font-black uppercase italic">{months[month].slice(0,3)} {year}</span>
+                        <button onClick={nextMonth} className="text-gray-600 hover:text-white"><i className="fas fa-chevron-right text-[7px]"></i></button>
                     </div>
                 )}
             </div>
 
-            <div className="min-h-[190px] flex flex-col justify-center">
+            <div className="min-h-[120px] flex flex-col justify-center">
                 {viewMode === 'calendar' ? (
                     <div className="animate-fade-in">
-                        <div className="grid grid-cols-7 gap-1 mb-2 text-center">
-                            {daysShort.map(d => <div key={d} className="text-[8px] text-gray-600 font-bold uppercase">{d}</div>)}
+                        <div className="grid grid-cols-7 gap-0.5 mb-1 text-center">
+                            {daysShort.map(d => <div key={d} className="text-[6px] text-gray-600 font-bold uppercase">{d}</div>)}
                         </div>
-                        <div className="grid grid-cols-7 gap-1">
+                        <div className="grid grid-cols-7 gap-0.5">
                             {days.map((day, idx) => {
                                 if (day === null) return <div key={`empty-${idx}`} className="aspect-square"></div>;
                                 const dStr = day.toString().padStart(2, '0');
@@ -240,15 +240,15 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
                                 if (status?.M) activeTypes.push({ color: 'bg-purple-600', letter: 'M' });
 
                                 return (
-                                    <div key={day} className={`aspect-square rounded-lg flex items-center justify-center relative border border-gray-800 transition overflow-hidden bg-[#121212]`}>
-                                        <span className={`absolute top-0.5 left-1 text-[8px] font-black z-20 ${activeTypes.length > 0 ? 'text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,1)]' : 'text-gray-700'}`}>
+                                    <div key={day} className={`aspect-square rounded flex items-center justify-center relative border border-gray-800 transition overflow-hidden bg-[#121212]`}>
+                                        <span className={`absolute top-0 left-0.5 text-[6px] font-black z-20 ${activeTypes.length > 0 ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,1)]' : 'text-gray-700'}`}>
                                             {day}
                                         </span>
                                         {activeTypes.length > 0 && (
                                             <div className={`w-full h-full grid ${activeTypes.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} ${activeTypes.length > 2 ? 'grid-rows-2' : ''}`}>
                                                 {activeTypes.map((t, i) => (
                                                     <div key={i} className={`${t.color} flex items-center justify-center relative ${activeTypes.length === 3 && i === 2 ? 'col-span-2' : ''}`}>
-                                                        <span className="text-[10px] font-black text-white italic drop-shadow-md">{t.letter}</span>
+                                                        <span className="text-[7px] font-black text-white italic drop-shadow-sm">{t.letter}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -259,17 +259,17 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
                         </div>
                     </div>
                 ) : (
-                    <div className="animate-fade-in">
+                    <div className="animate-fade-in px-0.5">
                         {lastSessionStats ? (
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-end border-b border-gray-800 pb-2">
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-end border-b border-gray-800 pb-0.5">
                                     <div className="flex-1 overflow-hidden">
-                                        <div className="text-[9px] text-red-500 font-black uppercase tracking-tighter italic">Ostatnia Sesja</div>
-                                        <div className="text-lg font-black text-white italic uppercase truncate tracking-tighter">{lastSessionStats.title}</div>
+                                        <div className="text-[7px] text-red-500 font-black uppercase tracking-tighter italic">Ostatnia Sesja</div>
+                                        <div className="text-[11px] font-black text-white italic uppercase truncate tracking-tighter">{lastSessionStats.title}</div>
                                     </div>
-                                    <div className="text-right ml-2"><div className="text-[10px] text-gray-500 font-bold">{lastSessionStats.date}</div></div>
+                                    <div className="text-right ml-1"><div className="text-[7px] text-gray-500 font-bold">{lastSessionStats.date}</div></div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-2 gap-1.5">
                                     <StatItem icon="fa-weight-hanging" label="Tonaż" value={lastSessionStats.totalWeight} unit="kg" color="text-red-500" />
                                     <StatItem icon="fa-dumbbell" label="Ćwiczenia" value={lastSessionStats.totalExercises} unit="" color="text-blue-500" />
                                     <StatItem icon="fa-redo" label="Powt." value={lastSessionStats.totalReps} unit="" color="text-green-500" />
@@ -277,14 +277,14 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center py-10 opacity-20"><i className="fas fa-dumbbell text-4xl mb-2"></i><div className="text-[10px] font-black uppercase italic">Brak danych</div></div>
+                            <div className="text-center py-4 opacity-20"><i className="fas fa-dumbbell text-xl mb-0.5"></i><div className="text-[7px] font-black uppercase italic">Brak danych</div></div>
                         )}
                     </div>
                 )}
             </div>
-            <div className="flex justify-center space-x-2 mt-4">
-                <button onClick={() => setViewMode('calendar')} className={`w-2 h-2 rounded-full transition-all ${viewMode === 'calendar' ? 'bg-red-500 w-6' : 'bg-gray-700'}`}></button>
-                <button onClick={() => setViewMode('summary')} className={`w-2 h-2 rounded-full transition-all ${viewMode === 'summary' ? 'bg-red-500 w-6' : 'bg-gray-700'}`}></button>
+            <div className="flex justify-center space-x-1 mt-2">
+                <button onClick={() => setViewMode('calendar')} className={`w-1 h-1 rounded-full transition-all ${viewMode === 'calendar' ? 'bg-red-500 w-3' : 'bg-gray-700'}`}></button>
+                <button onClick={() => setViewMode('summary')} className={`w-1 h-1 rounded-full transition-all ${viewMode === 'summary' ? 'bg-red-500 w-3' : 'bg-gray-700'}`}></button>
             </div>
         </div>
     );
@@ -292,10 +292,10 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
 
 function StatItem({ icon, label, value, unit, color }: any) {
     return (
-        <div className="bg-black/40 p-3 rounded-xl border border-gray-800 flex flex-col items-center justify-center shadow-inner">
-            <i className={`fas ${icon} ${color} text-xs mb-1 opacity-70`}></i>
-            <div className="text-white font-black text-sm leading-none tracking-tight">{value}<span className="text-[9px] ml-0.5 opacity-50 font-bold">{unit}</span></div>
-            <div className="text-[9px] text-gray-600 uppercase font-black italic mt-1.5">{label}</div>
+        <div className="bg-black/40 p-1 rounded border border-gray-800 flex flex-col items-center justify-center shadow-inner">
+            <i className={`fas ${icon} ${color} text-[7px] mb-0.5 opacity-70`}></i>
+            <div className="text-white font-black text-[9px] leading-none tracking-tight">{value}<span className="text-[6px] ml-0.5 opacity-50 font-bold">{unit}</span></div>
+            <div className="text-[6px] text-gray-600 uppercase font-black italic mt-0.5">{label}</div>
         </div>
     );
 }
