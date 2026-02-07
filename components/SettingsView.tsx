@@ -6,7 +6,7 @@ import { CLIENT_CONFIG } from '../constants';
 import { Exercise, WorkoutPlan, ExerciseType } from '../types';
 
 export default function SettingsView() {
-  const { settings, updateSettings, playAlarm, workouts, updateWorkouts, clientCode, logo } = useContext(AppContext);
+  const { settings, updateSettings, playAlarm, workouts, updateWorkouts, clientCode, logo, logout } = useContext(AppContext);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string>("");
   const [editingExerciseIdx, setEditingExerciseIdx] = useState<number | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -157,10 +157,19 @@ export default function SettingsView() {
   };
 
   const confirmProfileSave = () => {
-    // Ta funkcja służy tylko UX, bo updateSettings zapisuje na bieżąco.
-    // Daje użytkownikowi poczucie, że "zatwierdził" zmiany.
     setSaveStatus("Zapisano pomyślnie!");
     setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleLogoutRequest = () => {
+    setConfirmModal({
+      isOpen: true,
+      message: "Czy na pewno chcesz się wylogować?",
+      action: () => {
+        logout();
+        setConfirmModal(null);
+      }
+    });
   };
 
   return (
@@ -362,7 +371,7 @@ export default function SettingsView() {
         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportRequest} />
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5">
+      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 mb-6">
         <div className="flex justify-between items-center mb-6">
            <h3 className="text-sm font-black text-white flex items-center uppercase italic"><i className="fas fa-dumbbell text-red-500 mr-2"></i>Edytor Treningu</h3>
            <button 
@@ -424,6 +433,20 @@ export default function SettingsView() {
              )}
           </div>
         )}
+      </div>
+
+      {/* SEKCJA KONTO / WYLOGUJ */}
+      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 border-l-4 border-gray-600">
+        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
+          <i className="fas fa-user-lock text-gray-500 mr-2"></i>Konto
+        </h3>
+        <button 
+          onClick={handleLogoutRequest}
+          className="w-full bg-transparent border-2 border-red-900 hover:bg-red-900/20 text-red-500 font-black py-4 rounded-2xl shadow-lg transition transform active:scale-95 uppercase italic text-xs tracking-[0.2em] flex items-center justify-center"
+        >
+          <i className="fas fa-sign-out-alt mr-3"></i> WYLOGUJ SIĘ
+        </button>
+        <p className="text-[9px] text-center text-gray-700 font-bold uppercase tracking-widest mt-4 italic">Twoje dane pozostaną bezpieczne w chmurze.</p>
       </div>
 
       {/* CONFIRM MODAL */}

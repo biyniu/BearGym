@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
@@ -33,6 +32,7 @@ interface AppContextType {
   restTimer: { timeLeft: number | null, duration: number };
   startRestTimer: (duration: number) => void;
   stopRestTimer: () => void;
+  logout: () => void;
 }
 
 export const AppContext = React.createContext<AppContextType>({} as AppContextType);
@@ -258,7 +258,6 @@ export default function App() {
 
   const triggerBackgroundNotification = useCallback(() => {
     if ("Notification" in window && Notification.permission === "granted") {
-        // Fix: Removed 'vibrate' property which is not part of standard NotificationOptions in the constructor
         new Notification("KONIEC PRZERWY!", {
             body: "Wracaj do treningu!",
             icon: logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP',
@@ -364,6 +363,15 @@ export default function App() {
     setIsReady(true);
   };
 
+  const logout = () => {
+    localStorage.removeItem('bear_gym_client_code');
+    localStorage.removeItem('bear_gym_client_name');
+    sessionStorage.removeItem('init_redirect_done');
+    sessionStorage.removeItem('workout_start_time');
+    setClientCode(null);
+    setClientName('');
+  };
+
   const syncData = async (type: 'history' | 'extras' | 'plan', data: any) => {
     if (clientCode) {
       let payload = data;
@@ -402,7 +410,7 @@ export default function App() {
   return (
     <AppContext.Provider value={{ 
       clientCode, clientName, workouts, settings, updateSettings, updateWorkouts, logo, updateLogo, playAlarm, syncData,
-      workoutStartTime, setWorkoutStartTime, restTimer, startRestTimer, stopRestTimer
+      workoutStartTime, setWorkoutStartTime, restTimer, startRestTimer, stopRestTimer, logout
     }}>
       <InstallPrompt />
       <HashRouter>
