@@ -38,7 +38,6 @@ export const parseDateStr = (dateStr: string): number => {
   } catch(e) { return 0; }
 };
 
-// Fix for Error in file App.tsx on line 15: Module '"./services/storage"' has no exported member 'localStorageCache'.
 export const localStorageCache = {
   get: (key: string) => {
     const val = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_${key}`);
@@ -74,6 +73,13 @@ export const remoteStorage = {
     } catch (e) { return []; }
   },
 
+  deleteCoach: async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "coaches", id.toUpperCase()));
+      return true;
+    } catch (e) { return false; }
+  },
+
   fetchClients: async (coachId?: string) => {
     try {
       let q;
@@ -86,9 +92,25 @@ export const remoteStorage = {
       return querySnapshot.docs.map(doc => ({
         code: doc.id,
         name: doc.data().name || "Bez imienia",
-        coachId: doc.data().coachId
+        coachId: doc.data().coachId,
+        status: doc.data().status || 'active',
+        lastActivity: doc.data().lastActivity || null
       }));
     } catch (e) { return []; }
+  },
+
+  deleteClient: async (code: string) => {
+    try {
+      await deleteDoc(doc(db, "clients", code.toUpperCase()));
+      return true;
+    } catch (e) { return false; }
+  },
+
+  updateClientStatus: async (code: string, status: 'active' | 'inactive') => {
+    try {
+      await updateDoc(doc(db, "clients", code.toUpperCase()), { status });
+      return true;
+    } catch (e) { return false; }
   },
 
   createNewCoach: async (code: string, name: string) => {
@@ -111,6 +133,7 @@ export const remoteStorage = {
         name, 
         code: cleanCode, 
         coachId: coachId.toUpperCase(),
+        status: 'active',
         plan: {}, 
         history: {}, 
         extras: { measurements: [], cardio: [] } 
@@ -131,29 +154,24 @@ export const remoteStorage = {
   saveToCloud: async (code: string, type: string, data: any) => {
     try {
       const docRef = doc(db, "clients", code.toUpperCase());
-      await updateDoc(docRef, { [type]: data });
+      const updateData: any = { [type]: data };
+      if (type === 'history') {
+        updateData.lastActivity = Date.now();
+      }
+      await updateDoc(docRef, updateData);
       return true;
     } catch (e) { return false; }
   }
 };
 
 export const storage = {
-  // Helpers dla localStorage - updated to include storage key prefix for consistency
   getHistory: (id: string) => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_history_${id}`) || '[]'),
   saveHistory: (id: string, h: any[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_history_${id}`, JSON.stringify(h)),
-
-  // Fix for Error in file App.tsx on line 322: Property 'saveWorkouts' does not exist on type storage
   saveWorkouts: (w: WorkoutsMap) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_workouts`, JSON.stringify(w)),
-
-  // Fix for Error in file App.tsx on line 334: Property 'saveMeasurements' does not exist on type storage
   saveMeasurements: (m: BodyMeasurement[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_measurements`, JSON.stringify(m)),
   getMeasurements: (): BodyMeasurement[] => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_measurements`) || '[]'),
-
-  // Fix for Error in file App.tsx on line 335: Property 'saveCardioSessions' does not exist on type storage
   saveCardioSessions: (s: CardioSession[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_cardio`, JSON.stringify(s)),
   getCardioSessions: (): CardioSession[] => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_cardio`) || '[]'),
-
-  // Helpers for temporary inputs used during active workout session
   getTempInput: (key: string) => localStorage.getItem(`temp_${key}`) || '',
   saveTempInput: (key: string, val: string) => localStorage.setItem(`temp_${key}`, val),
   clearTempInputs: (workoutId: string, exercises: Exercise[]) => {
@@ -166,17 +184,11 @@ export const storage = {
       localStorage.removeItem(`temp_note_${workoutId}_${ex.id}`);
     });
   },
-
-  // Helpers for persistent notes attached to exercises
   getStickyNote: (workoutId: string, exerciseId: string) => localStorage.getItem(`sticky_note_${workoutId}_${exerciseId}`) || '',
   saveStickyNote: (workoutId: string, exerciseId: string, note: string) => localStorage.setItem(`sticky_note_${workoutId}_${exerciseId}`, note),
-
-  // Helpers for AI Chat history
   getChatHistory: () => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_chat_history`) || '[]'),
   saveChatHistory: (h: any[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_chat_history`, JSON.stringify(h)),
   clearChatHistory: () => localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_chat_history`),
-
-  // Czyści tymczasowe pola podczas prowadzenia treningu przez trenera
   clearCoachTemp: (clientId: string) => {
     Object.keys(localStorage).forEach(key => {
         if(key.includes(`coach_temp_${clientId}`)) localStorage.removeItem(key);
