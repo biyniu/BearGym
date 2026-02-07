@@ -670,7 +670,7 @@ export default function CoachDashboard() {
         <div className="p-6 border-b border-gray-800 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-black italic shadow-lg">B</div>
-            <h2 className="text-[10px] font-black text-white italic uppercase tracking-widest">{userRole}</h2>
+            <h2 className="text-[10px] font-black text-white italic uppercase tracking-widest">{currentCoachName || userRole}</h2>
           </div>
           <div className="flex items-center space-x-3">
             <button onClick={handleGlobalRefresh} title="Odśwież" className={`text-gray-600 hover:text-blue-500 transition ${refreshing ? 'animate-spin text-blue-500' : ''}`}><i className="fas fa-sync-alt"></i></button>

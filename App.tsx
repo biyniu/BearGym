@@ -19,6 +19,7 @@ import { CLIENT_CONFIG, DEFAULT_SETTINGS } from './constants';
 interface AppContextType {
   clientCode: string | null;
   clientName: string;
+  coachName: string;
   workouts: WorkoutsMap;
   settings: AppSettings;
   updateSettings: (s: AppSettings) => void;
@@ -160,6 +161,7 @@ const ClientRouteGuard: React.FC<{
 export default function App() {
   const [clientCode, setClientCode] = useState<string | null>(localStorage.getItem('bear_gym_client_code'));
   const [clientName, setClientName] = useState<string>(localStorage.getItem('bear_gym_client_name') || '');
+  const [coachName, setCoachName] = useState<string>(localStorage.getItem('bear_gym_coach_name') || '');
   const [workouts, setWorkouts] = useState<WorkoutsMap>(() => {
     const local = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
     return local ? JSON.parse(local) : {};
@@ -393,6 +395,16 @@ export default function App() {
           setClientName(result.name);
           localStorage.setItem('bear_gym_client_name', result.name);
         }
+        
+        // POBIERANIE DANYCH TRENERA
+        if (result.coachId) {
+          const coachRes = await remoteStorage.checkCoachAuth(result.coachId);
+          if (coachRes.success && coachRes.name) {
+            setCoachName(coachRes.name);
+            localStorage.setItem('bear_gym_coach_name', coachRes.name);
+          }
+        }
+
         if (result.history) {
           Object.entries(result.history).forEach(([id, h]) => {
             storage.saveHistory(id, h as any[]);
@@ -438,11 +450,13 @@ export default function App() {
   const logout = () => {
     localStorage.removeItem('bear_gym_client_code');
     localStorage.removeItem('bear_gym_client_name');
+    localStorage.removeItem('bear_gym_coach_name');
     localStorage.removeItem('rest_end_time');
     sessionStorage.removeItem('init_redirect_done');
     sessionStorage.removeItem('workout_start_time');
     setClientCode(null);
     setClientName('');
+    setCoachName('');
   };
 
   const syncData = async (type: 'history' | 'extras' | 'plan', data: any) => {
@@ -482,7 +496,7 @@ export default function App() {
 
   return (
     <AppContext.Provider value={{ 
-      clientCode, clientName, workouts, settings, updateSettings, updateWorkouts, logo, updateLogo, playAlarm, syncData,
+      clientCode, clientName, coachName, workouts, settings, updateSettings, updateWorkouts, logo, updateLogo, playAlarm, syncData,
       workoutStartTime, setWorkoutStartTime, restTimer, startRestTimer, stopRestTimer, logout
     }}>
       <InstallPrompt />

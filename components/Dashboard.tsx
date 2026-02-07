@@ -7,7 +7,7 @@ import { CLIENT_CONFIG } from '../constants';
 import { WorkoutPlan } from '../types';
 
 export default function Dashboard() {
-  const { workouts, logo, updateLogo, clientName } = useContext(AppContext);
+  const { workouts, logo, updateLogo, clientName, coachName } = useContext(AppContext);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,8 +49,16 @@ export default function Dashboard() {
             <i className="fas fa-camera text-white text-2xl"></i>
           </div>
         </div>
-        <h2 className="text-2xl font-black text-white tracking-tight uppercase text-center px-4 italic">{clientName || "TWÓJ TRENING"}</h2>
-        <p className="text-[10px] text-red-500 font-bold tracking-[0.2em] uppercase mt-1">{CLIENT_CONFIG.name}</p>
+        <h2 className="text-3xl font-black text-white tracking-tight uppercase text-center px-4 italic leading-none mb-2">{clientName || "TWÓJ TRENING"}</h2>
+        
+        {coachName && (
+          <div className="border border-red-600/50 bg-red-900/10 px-6 py-1 rounded-sm">
+             <span className="text-[11px] text-red-600 font-black uppercase italic tracking-widest">
+                TRENER: {coachName}
+             </span>
+          </div>
+        )}
+        
         <input type="file" ref={fileInputRef} accept="image/*" className="hidden" onChange={handleLogoUpload} />
       </div>
 
