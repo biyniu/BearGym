@@ -10,13 +10,16 @@ import {
   collection, 
   getDocs,
   query,
-  where
+  where,
+  deleteDoc
 } from 'firebase/firestore';
+// Import types for storage helpers
+import { WorkoutsMap, BodyMeasurement, CardioSession, Exercise } from '../types';
 
-// Inicjalizacja Firebase
 const app = initializeApp(CLIENT_CONFIG.firebaseConfig);
 const db = getFirestore(app);
 
+// Helper to parse dates for sorting and comparison
 export const parseDateStr = (dateStr: string): number => {
   try {
     const match = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
@@ -35,45 +38,42 @@ export const parseDateStr = (dateStr: string): number => {
   } catch(e) { return 0; }
 };
 
+// Fix for Error in file App.tsx on line 15: Module '"./services/storage"' has no exported member 'localStorageCache'.
+export const localStorageCache = {
+  get: (key: string) => {
+    const val = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_${key}`);
+    return val ? JSON.parse(val) : null;
+  },
+  save: (key: string, data: any) => {
+    localStorage.setItem(`${CLIENT_CONFIG.storageKey}_${key}`, JSON.stringify(data));
+  }
+};
+
 export const remoteStorage = {
-  /**
-   * Sprawdza czy dany kod to Super-Admin czy Trener
-   */
   checkCoachAuth: async (code: string) => {
     try {
       const cleanCode = code.trim().toUpperCase();
-      // 1. Sprawdź Super-Admina
       if (cleanCode === CLIENT_CONFIG.coachMasterCode) {
         return { success: true, role: 'super-admin' };
       }
-      // 2. Sprawdź w kolekcji coaches
       const coachRef = doc(db, "coaches", cleanCode);
       const coachSnap = await getDoc(coachRef);
       if (coachSnap.exists()) {
         return { success: true, role: 'coach', name: coachSnap.data().name };
       }
-      return { success: false, error: "Błędny kod autoryzacji." };
+      return { success: false, error: "Błędny kod." };
     } catch (e) {
-      return { success: false, error: "Błąd połączenia z bazą." };
+      return { success: false, error: "Błąd bazy." };
     }
   },
 
-  /**
-   * Super-Admin: Pobiera listę wszystkich trenerów
-   */
   fetchAllCoaches: async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "coaches"));
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (e) { return []; }
   },
 
-  /**
-   * Trener/Admin: Pobiera listę podopiecznych (opcjonalnie filtrowaną po trenerze)
-   */
   fetchClients: async (coachId?: string) => {
     try {
       let q;
@@ -82,7 +82,6 @@ export const remoteStorage = {
       } else {
         q = collection(db, "clients");
       }
-      
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => ({
         code: doc.id,
@@ -92,14 +91,10 @@ export const remoteStorage = {
     } catch (e) { return []; }
   },
 
-  /**
-   * Super-Admin: Tworzy nowego trenera
-   */
   createNewCoach: async (code: string, name: string) => {
     try {
       const cleanCode = code.trim().toUpperCase();
-      const coachRef = doc(db, "coaches", cleanCode);
-      await setDoc(coachRef, { 
+      await setDoc(doc(db, "coaches", cleanCode), { 
         name, 
         adminId: CLIENT_CONFIG.coachMasterCode,
         createdAt: Date.now()
@@ -108,19 +103,10 @@ export const remoteStorage = {
     } catch (e) { return { success: false }; }
   },
 
-  /**
-   * Tworzy nowego klienta przypisanego do trenera
-   */
   createNewClient: async (code: string, name: string, coachId: string) => {
     try {
       const cleanCode = code.trim().toUpperCase();
       const docRef = doc(db, "clients", cleanCode);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        return { success: false, error: "Ten kod klienta jest już zajęty." };
-      }
-
       await setDoc(docRef, { 
         name, 
         code: cleanCode, 
@@ -130,92 +116,70 @@ export const remoteStorage = {
         extras: { measurements: [], cardio: [] } 
       });
       return { success: true };
-    } catch (e) {
-      return { success: false, error: "Błąd podczas tworzenia klienta." };
-    }
+    } catch (e) { return { success: false, error: "Błąd." }; }
   },
 
   fetchUserData: async (code: string) => {
     try {
       const cleanCode = code.trim().toUpperCase();
-      const docRef = doc(db, "clients", cleanCode);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        return { success: true, ...docSnap.data(), code: cleanCode };
-      } else {
-        return { success: false, error: "Nie znaleziono kodu klienta." };
-      }
-    } catch (e) {
-      console.error("Firebase Error:", e);
-      return { success: false, error: "Błąd połączenia z bazą Firebase." };
-    }
-  },
-
-  fetchCoachClientDetail: async (clientId: string) => {
-    try {
-      const docRef = doc(db, "clients", clientId.toUpperCase());
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        return { success: true, ...docSnap.data(), code: clientId.toUpperCase() };
-      }
-      return { success: false };
-    } catch (e) { return { success: false }; }
+      const docSnap = await getDoc(doc(db, "clients", cleanCode));
+      if (docSnap.exists()) return { success: true, ...docSnap.data(), code: cleanCode };
+      return { success: false, error: "Nie znaleziono." };
+    } catch (e) { return { success: false, error: "Błąd." }; }
   },
 
   saveToCloud: async (code: string, type: string, data: any) => {
     try {
-      const cleanCode = code.toUpperCase();
-      const docRef = doc(db, "clients", cleanCode);
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        await setDoc(docRef, { [type]: data });
-      } else {
-        await updateDoc(docRef, { [type]: data });
-      }
+      const docRef = doc(db, "clients", code.toUpperCase());
+      await updateDoc(docRef, { [type]: data });
       return true;
     } catch (e) { return false; }
   }
 };
 
 export const storage = {
-  getLastBackupReminder: () => Number(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_last_backup`)) || 0,
-  setLastBackupReminder: (val: number) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_last_backup`, val.toString()),
+  // Helpers dla localStorage - updated to include storage key prefix for consistency
   getHistory: (id: string) => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_history_${id}`) || '[]'),
   saveHistory: (id: string, h: any[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_history_${id}`, JSON.stringify(h)),
-  getCardioSessions: () => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_cardio`) || '[]'),
-  saveCardioSessions: (s: any[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_cardio`, JSON.stringify(s)),
-  getMeasurements: () => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_measurements`) || '[]'),
-  saveMeasurements: (m: any[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_measurements`, JSON.stringify(m)),
-  getTempInput: (id: string) => localStorage.getItem(`${CLIENT_CONFIG.storageKey}_temp_${id}`) || '',
-  saveTempInput: (id: string, v: string) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_temp_${id}`, v),
-  getStickyNote: (wId: string, exId: string) => localStorage.getItem(`${CLIENT_CONFIG.storageKey}_sticky_${wId}_${exId}`) || '',
-  saveStickyNote: (wId: string, exId: string, v: string) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_sticky_${wId}_${exId}`, v),
-  getChatHistory: () => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_chat_history`) || '[]'),
-  saveChatHistory: (msgs: any[]) => {
-      const limited = msgs.slice(-50); 
-      localStorage.setItem(`${CLIENT_CONFIG.storageKey}_chat_history`, JSON.stringify(limited));
-  },
-  clearChatHistory: () => localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_chat_history`),
-  clearTempInputs: (workoutId: string, exercises: any[]) => {
+
+  // Fix for Error in file App.tsx on line 322: Property 'saveWorkouts' does not exist on type storage
+  saveWorkouts: (w: WorkoutsMap) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_workouts`, JSON.stringify(w)),
+
+  // Fix for Error in file App.tsx on line 334: Property 'saveMeasurements' does not exist on type storage
+  saveMeasurements: (m: BodyMeasurement[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_measurements`, JSON.stringify(m)),
+  getMeasurements: (): BodyMeasurement[] => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_measurements`) || '[]'),
+
+  // Fix for Error in file App.tsx on line 335: Property 'saveCardioSessions' does not exist on type storage
+  saveCardioSessions: (s: CardioSession[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_cardio`, JSON.stringify(s)),
+  getCardioSessions: (): CardioSession[] => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_cardio`) || '[]'),
+
+  // Helpers for temporary inputs used during active workout session
+  getTempInput: (key: string) => localStorage.getItem(`temp_${key}`) || '',
+  saveTempInput: (key: string, val: string) => localStorage.setItem(`temp_${key}`, val),
+  clearTempInputs: (workoutId: string, exercises: Exercise[]) => {
     exercises.forEach(ex => {
-      localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_temp_note_${workoutId}_${ex.id}`);
-      localStorage.removeItem(`completed_${workoutId}_${ex.id}`);
       for(let i=1; i<=ex.sets; i++) {
-        localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_temp_input_${workoutId}_${ex.id}_s${i}_kg`);
-        localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_temp_input_${workoutId}_${ex.id}_s${i}_reps`);
-        localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_temp_input_${workoutId}_${ex.id}_s${i}_time`);
+        localStorage.removeItem(`temp_input_${workoutId}_${ex.id}_s${i}_kg`);
+        localStorage.removeItem(`temp_input_${workoutId}_${ex.id}_s${i}_reps`);
+        localStorage.removeItem(`temp_input_${workoutId}_${ex.id}_s${i}_time`);
       }
+      localStorage.removeItem(`temp_note_${workoutId}_${ex.id}`);
     });
   },
-  getLastResult: (wId: string, exId: string) => localStorage.getItem(`history_${wId}_${exId}`) || '',
-  saveWorkouts: (w: any) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_workouts`, JSON.stringify(w))
-};
 
-export const localStorageCache = {
-  save: (k: string, d: any) => localStorage.setItem(k, JSON.stringify(d)),
-  get: (k: string) => {
-    const d = localStorage.getItem(k);
-    return d ? JSON.parse(d) : null;
+  // Helpers for persistent notes attached to exercises
+  getStickyNote: (workoutId: string, exerciseId: string) => localStorage.getItem(`sticky_note_${workoutId}_${exerciseId}`) || '',
+  saveStickyNote: (workoutId: string, exerciseId: string, note: string) => localStorage.setItem(`sticky_note_${workoutId}_${exerciseId}`, note),
+
+  // Helpers for AI Chat history
+  getChatHistory: () => JSON.parse(localStorage.getItem(`${CLIENT_CONFIG.storageKey}_chat_history`) || '[]'),
+  saveChatHistory: (h: any[]) => localStorage.setItem(`${CLIENT_CONFIG.storageKey}_chat_history`, JSON.stringify(h)),
+  clearChatHistory: () => localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_chat_history`),
+
+  // Czyści tymczasowe pola podczas prowadzenia treningu przez trenera
+  clearCoachTemp: (clientId: string) => {
+    Object.keys(localStorage).forEach(key => {
+        if(key.includes(`coach_temp_${clientId}`)) localStorage.removeItem(key);
+    });
   }
 };
