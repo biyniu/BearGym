@@ -44,6 +44,7 @@ export default function ActiveWorkout() {
   // Custom Discard Modal
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [showEmptyWarning, setShowEmptyWarning] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   const [customDate, setCustomDate] = useState(() => {
     const now = new Date();
@@ -51,8 +52,26 @@ export default function ActiveWorkout() {
     return new Date(now.getTime() - offset).toISOString().slice(0, 16);
   });
 
+  // Logika resetowania "ptaszków" w kolejnym dniu
   useEffect(() => {
-    if (!workoutStartTime) {
+    if (!id || !workoutData) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const lastDateKey = `last_active_date_${id}`;
+    const lastDate = localStorage.getItem(lastDateKey);
+
+    if (lastDate !== today) {
+      // Resetujemy status ukończenia wszystkich ćwiczeń w tym treningu
+      workoutData.exercises.forEach(ex => {
+        localStorage.removeItem(`completed_${id}_${ex.id}`);
+      });
+      localStorage.setItem(lastDateKey, today);
+    }
+    setIsReady(true);
+  }, [id, workoutData]);
+
+  useEffect(() => {
+    if (!workoutStartTime && isReady) {
       setWorkoutStartTime(Date.now());
     }
     
@@ -66,12 +85,12 @@ export default function ActiveWorkout() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
-  }, [workoutStartTime, setWorkoutStartTime]);
+  }, [workoutStartTime, setWorkoutStartTime, isReady]);
 
   if (!workoutData || !id) return <div className="text-center p-10 text-red-500">Nie znaleziono treningu.</div>;
+  if (!isReady) return null; // Czekamy na proces resetowania daty
 
   const handleFinish = async () => {
-    // Sprawdzanie czy są jakiekolwiek dane
     let hasData = false;
     workoutData.exercises.forEach(ex => {
       for(let i=1; i<=ex.sets; i++) {
@@ -114,7 +133,6 @@ export default function ActiveWorkout() {
         }
       }
       
-      // Notatka: Używamy tymczasowej (obecna sesja)
       const note = storage.getTempInput(`note_${id}_${ex.id}`);
       
       if(summaryParts.length > 0) {
@@ -140,7 +158,6 @@ export default function ActiveWorkout() {
     storage.saveHistory(id, history);
     await syncData('history', history);
     
-    // Czyścimy tylko tymczasowe inputy, sticky notes zostają w storage
     storage.clearTempInputs(id, workoutData.exercises);
     setWorkoutStartTime(null);
     stopRestTimer();
@@ -212,7 +229,6 @@ export default function ActiveWorkout() {
         ))}
       </div>
 
-      {/* Action Buttons Section */}
       <div className="mt-12 mb-8 px-4 flex flex-col space-y-6 relative">
         <button 
           type="button"
@@ -233,7 +249,6 @@ export default function ActiveWorkout() {
         </div>
       </div>
 
-      {/* DISCARD MODAL */}
       {showDiscardModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 animate-fade-in">
               <div className="bg-[#1e1e1e] border border-gray-700 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -262,7 +277,6 @@ export default function ActiveWorkout() {
           </div>
       )}
 
-      {/* EMPTY WARNING MODAL */}
       {showEmptyWarning && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6 animate-fade-in">
               <div className="bg-[#1e1e1e] border border-yellow-700 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -303,10 +317,8 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
     return history[0].results[exercise.id] || '';
   }, [history, exercise.id]);
 
-  // Parsowanie poprzednich wyników dla placeholderów
   const previousSets = useMemo(() => {
     if(!lastResult) return [];
-    // Usuwamy notatkę przed parsowaniem zestawów, aby nie zakłócała logiki
     const cleanResult = lastResult.replace(/\[Note:.*?\]/g, ''); 
     const sets = cleanResult.split('|');
     return sets.map(s => {
@@ -322,7 +334,6 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
     });
   }, [lastResult]);
 
-  // Stan notatki
   const [note, setNote] = useState(() => {
     const temp = storage.getTempInput(`note_${workoutId}_${exercise.id}`);
     if (temp) return temp;
@@ -337,7 +348,6 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Inicjalizacja z AUTO-UZUPEŁNIANIEM (Auto-Fill) z poprzedniego treningu
     const newValues: Record<string, string> = {};
     for(let i=1; i<=exercise.sets; i++) {
       const uidKg = `input_${workoutId}_${exercise.id}_s${i}_kg`;
@@ -348,12 +358,11 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
       let savedReps = storage.getTempInput(uidReps);
       let savedTime = storage.getTempInput(uidTime);
 
-      // AUTO-FILL LOGIC: Jeśli puste, weź z historii
       const prevSet = previousSets[i-1];
       
       if (!savedKg && prevSet?.kg) {
           savedKg = prevSet.kg;
-          storage.saveTempInput(uidKg, savedKg); // Zapisujemy od razu jako temp
+          storage.saveTempInput(uidKg, savedKg);
       }
       if (!savedReps && prevSet?.reps) {
           savedReps = prevSet.reps;
@@ -369,7 +378,7 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
       newValues[uidTime] = savedTime;
     }
     setInputValues(prev => ({ ...prev, ...newValues }));
-  }, [workoutId, exercise.id, exercise.sets, previousSets]); // Dodano previousSets do dependency
+  }, [workoutId, exercise.id, exercise.sets, previousSets]);
 
   const handleInputChange = (uid: string, value: string) => {
     storage.saveTempInput(uid, value);

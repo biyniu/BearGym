@@ -394,6 +394,22 @@ export default function CoachDashboard() {
     setLoading(false);
   };
 
+  // Funkcja generująca kod klienta na podstawie imienia i nazwiska
+  const handleNameInput = (val: string) => {
+    const parts = val.trim().split(/\s+/);
+    let suggestedCode = form.code;
+    
+    // Sugeruj kod tylko jeśli pole kodu jest puste
+    if (parts.length >= 2 && (!form.code || form.code === "")) {
+      const first = parts[0].substring(0, 3).toUpperCase();
+      const last = parts[parts.length - 1].substring(0, 3).toUpperCase();
+      const random = Math.floor(100 + Math.random() * 900);
+      suggestedCode = `${first}${last}${random}`;
+    }
+    
+    setForm({ ...form, name: val, code: suggestedCode });
+  };
+
   if (!userRole) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
@@ -692,7 +708,37 @@ export default function CoachDashboard() {
           <div className="bg-[#161616] border border-gray-800 rounded-3xl p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
             {modalType === 'add-coach' || modalType === 'add-client' ? (
-              <><h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3><div className="space-y-5"><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" /><input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" /><button onClick={async () => { setLoading(true); if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh(); setLoading(false); }} className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95">UTWÓRZ</button></div></>
+              <>
+                <h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3>
+                <div className="space-y-5">
+                  <input 
+                    value={form.name} 
+                    onChange={e => modalType === 'add-client' ? handleNameInput(e.target.value) : setForm({...form, name: e.target.value})} 
+                    placeholder="Imię i Nazwisko" 
+                    className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" 
+                  />
+                  <input 
+                    value={form.code} 
+                    onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} 
+                    placeholder="KOD / HASŁO" 
+                    className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" 
+                  />
+                  <button 
+                    onClick={async () => { 
+                      setLoading(true); 
+                      if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); 
+                      else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); 
+                      setModalType(null); 
+                      setForm({name:'', code:''}); 
+                      await handleGlobalRefresh(); 
+                      setLoading(false); 
+                    }} 
+                    className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95"
+                  >
+                    UTWÓRZ
+                  </button>
+                </div>
+              </>
             ) : modalType === 'excel-import' ? (
               <div className="max-w-xl w-full">
                 <h3 className="text-2xl font-black text-white italic uppercase mb-2 tracking-tight">Import z Excela</h3>
