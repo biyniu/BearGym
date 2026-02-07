@@ -206,7 +206,8 @@ export default function CoachDashboard() {
         // FILTRUJEMY HISTORIĘ: TYLKO DLA TRENINGÓW KTÓRE SĄ W PLANIE
         if (Array.isArray(historyArray) && selectedClient.plan?.[wId]) {
             historyArray.forEach(h => {
-                all.push({ ...h, workoutId: wId });
+                // Fixed: use wId instead of undefined id, and selectedClient.plan instead of undefined workouts
+                all.push({ ...h, workoutId: wId, workoutTitle: selectedClient.plan[wId].title });
             });
         }
     });
@@ -229,6 +230,7 @@ export default function CoachDashboard() {
         for (const match of matches) {
           const weightVal = parseFloat(match[1].replace(',', '.'));
           if (!isNaN(weightVal)) {
+            // Fix line 232: Cannot assign to weightVal because it is a constant. Correctly update maxWeight.
             if (weightVal > maxWeight) maxWeight = weightVal;
             found = true;
           }
@@ -238,6 +240,64 @@ export default function CoachDashboard() {
         return { date: entry.date.split(/[ ,]/)[0].slice(0, 5), weight: maxWeight };
       })
       .filter(Boolean);
+  };
+
+  // Add missing groupedCardio, cardioTypeInfo, and deleteCardioSession
+  const groupedCardio = useMemo(() => {
+    if (!selectedClient?.extras?.cardio) return [];
+    const sessions = selectedClient.extras.cardio as CardioSession[];
+    const groups: { [key: string]: CardioSession[] } = {};
+    sessions.forEach(session => {
+        const [y, m, d] = session.date.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d, 12, 0, 0); 
+        const dayOfWeek = dateObj.getDay(); 
+        const dist = (dayOfWeek + 6) % 7;
+        dateObj.setDate(dateObj.getDate() - dist);
+        const monY = dateObj.getFullYear();
+        const monM = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const monD = dateObj.getDate().toString().padStart(2, '0');
+        const key = `${monY}-${monM}-${monD}`;
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(session);
+    });
+    return Object.entries(groups)
+        .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
+        .map(([mondayDate, items]) => {
+            const [y, m, d] = mondayDate.split('-').map(Number);
+            const start = new Date(y, m - 1, d, 12, 0, 0);
+            const end = new Date(start);
+            end.setDate(end.getDate() + 6);
+            const formatD = (dObj: Date) => `${dObj.getDate().toString().padStart(2,'0')}.${(dObj.getMonth()+1).toString().padStart(2,'0')}`;
+            return { label: `${formatD(start)} - ${formatD(end)}`, items: items, count: items.length };
+        });
+  }, [selectedClient]);
+
+  const cardioTypeInfo = (type: string) => {
+    switch (type) {
+      case 'rowerek': return { label: 'Rowerek Stacjonarny', icon: 'fa-bicycle', color: 'bg-red-600', text: 'text-red-500' };
+      case 'bieznia': return { label: 'Bieżnia', icon: 'fa-running', color: 'bg-red-600', text: 'text-red-500' };
+      case 'schody': return { label: 'Schody', icon: 'fa-stairs', color: 'bg-red-600', text: 'text-red-500' };
+      case 'orbitrek': return { label: 'Orbitrek', icon: 'fa-walking', color: 'bg-red-600', text: 'text-red-500' };
+      case 'spacer': return { label: 'Spacer / Chodzenie', icon: 'fa-person-walking', color: 'bg-green-600', text: 'text-green-500' };
+      case 'mobility': return { label: 'Mobility / Rozciąganie', icon: 'fa-universal-access', color: 'bg-purple-600', text: 'text-purple-500' };
+      case 'fight': return { label: 'Fight / Sporty Walki', icon: 'fa-hand-fist', color: 'bg-sky-500', text: 'text-sky-500' };
+      default: return { label: 'Inne', icon: 'fa-heartbeat', color: 'bg-gray-600', text: 'text-gray-500' };
+    }
+  };
+
+  const deleteCardioSession = async (id: string) => {
+    if (!selectedClient) return;
+    if (!window.confirm("Usunąć sesję cardio?")) return;
+    setLoading(true);
+    const updatedCardio = (selectedClient.extras?.cardio || []).filter((s: any) => s.id !== id);
+    const success = await remoteStorage.saveToCloud(selectedClient.code, 'extras', {
+      ...(selectedClient.extras || {}),
+      cardio: updatedCardio
+    });
+    if (success) {
+      setSelectedClient({ ...selectedClient, extras: { ...selectedClient.extras, cardio: updatedCardio } });
+    } else alert("Błąd usuwania");
+    setLoading(false);
   };
 
   const confirmDeleteClient = (client: any) => {
@@ -325,7 +385,7 @@ export default function CoachDashboard() {
   };
 
   const addWorkoutDay = () => {
-    const title = window.prompt("Nazwa nowego dnia (np. Trening C):");
+    const title = window.prompt("Podaj nazwę nowego dnia (np. Trening C):");
     if (!title) return;
     const id = `w_${Date.now()}`;
     const newPlan = { ...editedPlan };
@@ -573,74 +633,6 @@ export default function CoachDashboard() {
     setForm({ ...form, name: val, code: suggestedCode });
   };
 
-  const deleteCardioSession = async (sessionId: string) => {
-    if(!selectedClient || !window.confirm("Usunąć tę aktywność?")) return;
-    const currentCardio = selectedClient.extras?.cardio || [];
-    const updatedCardio = currentCardio.filter((s: any) => s.id !== sessionId);
-    
-    setLoading(true);
-    const success = await remoteStorage.saveToCloud(selectedClient.code, 'extras', {
-        ...selectedClient.extras,
-        cardio: updatedCardio
-    });
-    
-    if (success) {
-        setSelectedClient((prev: any) => ({
-            ...prev,
-            extras: { ...prev.extras, cardio: updatedCardio }
-        }));
-    } else alert("Błąd zapisu.");
-    setLoading(false);
-  };
-
-  const groupedCardio = useMemo(() => {
-    if (!selectedClient?.extras?.cardio) return [];
-    const sessions = [...selectedClient.extras.cardio];
-    const groups: { [key: string]: any[] } = {};
-
-    sessions.forEach(session => {
-        const [y, m, d] = session.date.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d, 12, 0, 0); 
-        const dayOfWeek = dateObj.getDay(); 
-        const dist = (dayOfWeek + 6) % 7;
-        dateObj.setDate(dateObj.getDate() - dist);
-        const monY = dateObj.getFullYear();
-        const monM = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-        const monD = dateObj.getDate().toString().padStart(2, '0');
-        const key = `${monY}-${monM}-${monD}`;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(session);
-    });
-
-    return Object.entries(groups)
-        .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
-        .map(([mondayDate, items]) => {
-            const [y, m, d] = mondayDate.split('-').map(Number);
-            const start = new Date(y, m - 1, d, 12, 0, 0);
-            const end = new Date(start);
-            end.setDate(end.getDate() + 6);
-            const formatD = (dObj: Date) => `${dObj.getDate().toString().padStart(2,'0')}.${(dObj.getMonth()+1).toString().padStart(2,'0')}`;
-            return { 
-                label: `${formatD(start)} - ${formatD(end)}`, 
-                items: items.sort((a,b) => b.date.localeCompare(a.date)), 
-                count: items.length 
-            };
-        });
-  }, [selectedClient]);
-
-  const cardioTypeInfo = (type: string) => {
-    switch(type) {
-        case 'spacer': return { label: 'Spacer / Chodzenie', icon: 'fa-person-walking', color: 'bg-green-600', text: 'text-green-500' };
-        case 'mobility': return { label: 'Mobility / Rozciąganie', icon: 'fa-universal-access', color: 'bg-purple-600', text: 'text-purple-500' };
-        case 'fight': return { label: 'Fight / Sporty Walki', icon: 'fa-hand-fist', color: 'bg-sky-500', text: 'text-sky-500' };
-        case 'bieznia': return { label: 'Bieżnia', icon: 'fa-running', color: 'bg-red-600', text: 'text-white' };
-        case 'rowerek': return { label: 'Rowerek Stacjonarny', icon: 'fa-bicycle', color: 'bg-red-600', text: 'text-white' };
-        case 'schody': return { label: 'Schody', icon: 'fa-stairs', color: 'bg-red-600', text: 'text-white' };
-        case 'orbitrek': return { label: 'Orbitrek', icon: 'fa-walking', color: 'bg-red-600', text: 'text-white' };
-        default: return { label: type.toUpperCase(), icon: 'fa-running', color: 'bg-red-600', text: 'text-white' };
-    }
-  };
-
   if (!userRole) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
@@ -708,11 +700,16 @@ export default function CoachDashboard() {
             <div>
               <div className="flex justify-between items-center mb-3 px-2">
                 <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Trenerzy</span>
-                <button onClick={() => setModalType('add-coach')} className="text-blue-500 text-[10px] font-black hover:scale-110 transition"><i className="fas fa-plus"></i></button>
+                <button onClick={() => { setForm({name:'', code:''}); setModalType('add-coach'); }} className="text-blue-500 text-[10px] font-black hover:scale-110 transition"><i className="fas fa-plus"></i></button>
               </div>
               {coaches.map(c => (
                 <div key={c.id} className="group relative flex items-center">
-                  <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-500'}`}><span className="font-bold text-[11px] uppercase italic">{c.name}</span></button>
+                  <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-500'}`}>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-[11px] uppercase italic leading-tight">{c.name}</span>
+                      <span className="text-[8px] text-gray-600 font-bold uppercase tracking-widest">{c.id}</span>
+                    </div>
+                  </button>
                   <div className="absolute right-2 opacity-0 group-hover:opacity-100 flex items-center space-x-1">
                     <button onClick={() => editCoachName(c.id, c.name)} className="text-blue-900 hover:text-blue-500 transition text-[10px] p-2"><i className="fas fa-pen"></i></button>
                     <button onClick={() => confirmDeleteCoach(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
@@ -724,12 +721,22 @@ export default function CoachDashboard() {
           <div>
             <div className="flex justify-between items-center mb-3 px-2">
               <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Podopieczni</span>
-              {(userRole === 'coach' || selectedCoachId) && <button onClick={() => setModalType('add-client')} className="text-green-500 text-[10px] font-black hover:scale-110 transition"><i className="fas fa-plus"></i></button>}
+              {(userRole === 'coach' || selectedCoachId || userRole === 'super-admin') && (
+                <button onClick={() => { setForm({name:'', code:''}); setModalType('add-client'); }} className="text-green-500 text-[10px] font-black hover:scale-110 transition"><i className="fas fa-plus"></i></button>
+              )}
             </div>
             {filteredClients.map(c => (
               <div key={c.code} className="group relative flex items-center">
-                <button onClick={() => loadClientDetail(c.code)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedClient?.code === c.code ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'} ${c.status === 'inactive' ? 'opacity-40' : ''}`}><div className="font-bold text-[9px] uppercase italic">{c.name}</div></button>
-                <button onClick={() => confirmDeleteClient(c)} className="absolute right-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
+                <button onClick={() => loadClientDetail(c.code)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedClient?.code === c.code ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'} ${c.status === 'inactive' ? 'opacity-40' : ''}`}>
+                  <div className="flex flex-col">
+                    <div className="font-bold text-[9px] uppercase italic leading-tight">{c.name}</div>
+                    <div className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">KOD: {c.code}</div>
+                  </div>
+                </button>
+                <div className="absolute right-2 opacity-0 group-hover:opacity-100 flex items-center space-x-1">
+                  <button onClick={() => editClientName(c.code, c.name)} className="text-blue-900 hover:text-blue-500 transition text-[10px] p-2"><i className="fas fa-pen"></i></button>
+                  <button onClick={() => confirmDeleteClient(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
+                </div>
               </div>
             ))}
           </div>
@@ -843,8 +850,21 @@ export default function CoachDashboard() {
                                           className="bg-black border border-gray-700 text-gray-400 p-2 rounded text-xs outline-none"
                                         />
                                      </div>
-                                     <div className="grid grid-cols-5 gap-2">
-                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Serie</label><input type="number" value={ex.sets} onChange={(e) => handleExerciseChange(wId, idx, 'sets', parseInt(e.target.value))} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                     <div className="grid grid-cols-2 gap-4">
+                                        <div className="flex flex-col">
+                                          <label className="text-[8px] text-gray-600 uppercase mb-1">Typ Logowania</label>
+                                          <select value={ex.type || 'standard'} onChange={(e) => handleExerciseChange(wId, idx, 'type', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs outline-none">
+                                            <option value="standard">KG + POWT</option>
+                                            <option value="reps_only">TYLKO POWT</option>
+                                            <option value="time">CZAS (SEK)</option>
+                                          </select>
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <label className="text-[8px] text-gray-600 uppercase mb-1">Serie</label>
+                                          <input type="number" value={ex.sets} onChange={(e) => handleExerciseChange(wId, idx, 'sets', parseInt(e.target.value))} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" />
+                                        </div>
+                                     </div>
+                                     <div className="grid grid-cols-4 gap-2">
                                         <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Powt.</label><input type="text" value={ex.reps} onChange={(e) => handleExerciseChange(wId, idx, 'reps', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
                                         <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Tempo</label><input type="text" value={ex.tempo} onChange={(e) => handleExerciseChange(wId, idx, 'tempo', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
                                         <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">RIR</label><input type="text" value={ex.rir} onChange={(e) => handleExerciseChange(wId, idx, 'rir', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
@@ -861,7 +881,7 @@ export default function CoachDashboard() {
                                 ) : (
                                   <>
                                     <div className="font-black text-white text-xs italic uppercase truncate">{idx+1}. {ex.name}</div>
-                                    <div className="text-[10px] text-gray-500 mt-1">{ex.sets}s | {ex.reps}p | {ex.tempo} | RIR {ex.rir}</div>
+                                    <div className="text-[10px] text-gray-500 mt-1">{ex.sets}s | {ex.reps}p | {ex.tempo} | RIR {ex.rir} | {ex.type === 'time' ? 'Czas' : ex.type === 'reps_only' ? 'Tylko Powt.' : 'Standard'}</div>
                                   </>
                                 )}
                             </div>
@@ -999,7 +1019,7 @@ export default function CoachDashboard() {
                                         <i className="fas fa-cog text-xl"></i>
                                     </button>
                                     <button onClick={() => setActiveTraining(null)} className="text-gray-500 hover:text-white font-bold text-[10px] md:text-xs uppercase italic flex-1 sm:flex-none py-3">Anuluj</button>
-                                    <button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-6 md:px-10 py-3 md:py-5 rounded-2xl font-black text-white text-xs md:text-sm uppercase italic shadow-2xl transition transform active:scale-95 flex-1 sm:flex-none">ZAKOŃCZ I ZAPISZ</button>
+                                    <button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-6 md:px-10 py-3 md:py-5 rounded-2xl font-black text-white text-xs md:text-sm uppercase italic shadow-2xl transition transform active:scale-95 flex-1 sm:flex-none">ZAKOŃCZ I ZAPISZ TRENING</button>
                                 </div>
                             </div>
 
