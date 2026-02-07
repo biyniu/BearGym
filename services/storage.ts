@@ -76,6 +76,34 @@ export const remoteStorage = {
   },
 
   /**
+   * Panel Trenera: Tworzy nowego klienta w bazie
+   */
+  createNewClient: async (masterCode: string, code: string, name: string) => {
+    try {
+      if (masterCode !== CLIENT_CONFIG.coachMasterCode) return { success: false, error: "Brak autoryzacji." };
+      const cleanCode = code.trim().toUpperCase();
+      const docRef = doc(db, "clients", cleanCode);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        return { success: false, error: "Ten kod klienta jest już zajęty." };
+      }
+
+      await setDoc(docRef, { 
+        name, 
+        code: cleanCode, 
+        plan: {}, 
+        history: {}, 
+        extras: { measurements: [], cardio: [] } 
+      });
+      return { success: true };
+    } catch (e) {
+      console.error("Firebase Create Error:", e);
+      return { success: false, error: "Błąd serwera podczas tworzenia klienta." };
+    }
+  },
+
+  /**
    * Panel Trenera: Pobiera pełne dane konkretnego podopiecznego
    */
   fetchCoachClientDetail: async (masterCode: string, clientId: string) => {
