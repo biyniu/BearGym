@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
@@ -34,38 +36,6 @@ interface AppContextType {
 }
 
 export const AppContext = React.createContext<AppContextType>({} as AppContextType);
-
-const ViewRedirector = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    const isCoach = location.pathname === '/coach-admin';
-    const targetManifest = isCoach ? 'manifest-coach.json' : 'manifest.json';
-    
-    // Agresywna podmiana manifestu (usuwamy stary i wstawiamy nowy)
-    let manifestLink = document.getElementById('manifest-link') as HTMLLinkElement;
-    if (manifestLink && !manifestLink.href.includes(targetManifest)) {
-      manifestLink.href = targetManifest;
-      localStorage.setItem('bear_gym_role_pref', isCoach ? 'coach' : 'client');
-    }
-  }, [location.pathname]);
-
-  useEffect(() => {
-    const pref = localStorage.getItem('bear_gym_role_pref');
-    const isRoot = window.location.hash === '#/' || window.location.hash === '';
-    const initRedirectDone = sessionStorage.getItem('init_redirect_done');
-
-    if (isRoot && pref === 'coach' && !initRedirectDone) {
-      sessionStorage.setItem('init_redirect_done', 'true');
-      navigate('/coach-admin', { replace: true });
-    } else if (isRoot && !initRedirectDone) {
-      sessionStorage.setItem('init_redirect_done', 'true');
-    }
-  }, [navigate]);
-
-  return null;
-};
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -288,6 +258,7 @@ export default function App() {
 
   const triggerBackgroundNotification = useCallback(() => {
     if ("Notification" in window && Notification.permission === "granted") {
+        // Fix: Removed 'vibrate' property which is not part of standard NotificationOptions in the constructor
         new Notification("KONIEC PRZERWY!", {
             body: "Wracaj do treningu!",
             icon: logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP',
@@ -435,7 +406,6 @@ export default function App() {
     }}>
       <InstallPrompt />
       <HashRouter>
-        <ViewRedirector />
         <ClientRouteGuard clientCode={clientCode} syncError={syncError} isReady={isReady} handleLogin={handleLogin}>
           <Routes>
             <Route path="/" element={<Dashboard />} />

@@ -14,9 +14,9 @@ const CustomLabel = (props: any) => {
 };
 
 export default function CoachDashboard() {
-  const [authCode, setAuthCode] = useState(() => localStorage.getItem('bear_gym_coach_code') || '');
-  const [userRole, setUserRole] = useState<'super-admin' | 'coach' | null>(() => localStorage.getItem('bear_gym_coach_role') as any || null);
-  const [currentCoachName, setCurrentCoachName] = useState(() => localStorage.getItem('bear_gym_coach_name') || '');
+  const [authCode, setAuthCode] = useState('');
+  const [userRole, setUserRole] = useState<'super-admin' | 'coach' | null>(null);
+  const [currentCoachName, setCurrentCoachName] = useState('');
   
   const [coaches, setCoaches] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -47,6 +47,17 @@ export default function CoachDashboard() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(false);
 
+  const handleLogin = async () => {
+    setLoading(true);
+    const res = await remoteStorage.checkCoachAuth(authCode);
+    if (res.success) {
+      setUserRole(res.role as any);
+      setCurrentCoachName(res.name || 'Super Admin');
+      await refreshData(res.role as any, authCode);
+    } else alert(res.error);
+    setLoading(false);
+  };
+
   const refreshData = async (role: 'super-admin' | 'coach', code: string) => {
     if (role === 'super-admin') {
       const coachList = await remoteStorage.fetchAllCoaches();
@@ -61,57 +72,11 @@ export default function CoachDashboard() {
     }
   };
 
-  // Automatyczne odświeżanie danych jeśli sesja istnieje
-  useEffect(() => {
-    if (userRole && authCode) {
-      refreshData(userRole, authCode);
-    }
-  }, []);
-
-  const handleLogin = async () => {
-    setLoading(true);
-    const res = await remoteStorage.checkCoachAuth(authCode);
-    if (res.success) {
-      const role = res.role as 'super-admin' | 'coach';
-      const name = res.name || 'Super Admin';
-      
-      setUserRole(role);
-      setCurrentCoachName(name);
-      
-      // Zapisz sesję w localStorage
-      localStorage.setItem('bear_gym_coach_code', authCode);
-      localStorage.setItem('bear_gym_coach_role', role);
-      localStorage.setItem('bear_gym_coach_name', name);
-      localStorage.setItem('bear_gym_role_pref', 'coach');
-      
-      await refreshData(role, authCode);
-    } else {
-      alert(res.error);
-    }
-    setLoading(false);
-  };
-
-  const handleLogout = () => {
-    if (!window.confirm("Czy na pewno chcesz się wylogować z panelu trenera?")) return;
-    
-    // Czyść stan i pamięć
-    setUserRole(null);
-    setCurrentCoachName('');
-    setAuthCode('');
-    localStorage.removeItem('bear_gym_coach_code');
-    localStorage.removeItem('bear_gym_coach_role');
-    localStorage.removeItem('bear_gym_coach_name');
-    localStorage.setItem('bear_gym_role_pref', 'client');
-    
-    // Opcjonalnie przeładuj stronę dla czystości stanu
-    window.location.reload();
-  };
-
   const handleGlobalRefresh = async () => {
     if (refreshing) return;
     setRefreshing(true);
     try {
-        if (userRole && authCode) {
+        if (userRole) {
             await refreshData(userRole, authCode);
             if (selectedCoachId && userRole === 'super-admin') {
                 const list = await remoteStorage.fetchClients(selectedCoachId);
@@ -454,11 +419,6 @@ export default function CoachDashboard() {
     setForm({ ...form, name: val, code: suggestedCode });
   };
 
-  const switchToClientView = () => {
-    localStorage.setItem('bear_gym_role_pref', 'client');
-    window.location.hash = '#/';
-  };
-
   if (!userRole) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
@@ -507,12 +467,11 @@ export default function CoachDashboard() {
             <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-black italic shadow-lg">B</div>
             <h2 className="text-[10px] font-black text-white italic uppercase tracking-widest">{userRole}</h2>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
             <button onClick={handleGlobalRefresh} title="Odśwież" className={`text-gray-600 hover:text-blue-500 transition ${refreshing ? 'animate-spin text-blue-500' : ''}`}><i className="fas fa-sync-alt"></i></button>
             <button onClick={() => setIsMobileSidebarOpen(false)} className="md:hidden text-gray-600 hover:text-white transition"><i className="fas fa-times"></i></button>
-            <button onClick={switchToClientView} title="Widok Klienta" className="text-gray-600 hover:text-green-500 transition"><i className="fas fa-user"></i></button>
             <button onClick={() => setIsDesktopSidebarCollapsed(true)} className="hidden md:block text-gray-600 hover:text-white transition"><i className="fas fa-angles-left"></i></button>
-            <button onClick={handleLogout} className="text-gray-600 hover:text-red-500 transition" title="Wyloguj"><i className="fas fa-sign-out-alt"></i></button>
+            <button onClick={() => window.location.reload()} className="text-gray-600 hover:text-red-500 transition"><i className="fas fa-sign-out-alt"></i></button>
           </div>
         </div>
         <div className="p-4">
@@ -881,7 +840,7 @@ export default function CoachDashboard() {
       </main>
 
       {modalType && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 md:p-6 animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 md:p-6 animate-fade-in">
           <div className="bg-[#161616] border border-gray-800 rounded-3xl p-6 md:p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
             {modalType === 'add-coach' || modalType === 'add-client' ? (

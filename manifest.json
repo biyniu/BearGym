@@ -1,25 +1,21 @@
 {
-  "id": "bear-gym-client-v1",
   "short_name": "Bear Gym",
-  "name": "Bear Gym Trening",
+  "name": "Bear Gym Training App",
   "icons": [
     {
       "src": "https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP",
       "type": "image/png",
-      "sizes": "192x192",
-      "purpose": "any"
+      "sizes": "192x192"
     },
     {
       "src": "https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP",
       "type": "image/png",
-      "sizes": "512x512",
-      "purpose": "any"
+      "sizes": "512x512"
     }
   ],
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "theme_color": "#121212",
   "background_color": "#121212",
-  "orientation": "portrait",
-  "scope": "/"
+  "orientation": "portrait"
 }

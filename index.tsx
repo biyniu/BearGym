@@ -7,15 +7,6 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-// Rejestracja Service Workera dla PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Service Worker zarejestrowany!', reg))
-      .catch(err => console.log('Błąd rejestracji SW:', err));
-  });
-}
-
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
