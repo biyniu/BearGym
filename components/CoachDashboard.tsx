@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { remoteStorage, parseDateStr, storage } from '../services/storage';
 import { Exercise, WarmupExercise, ExerciseType } from '../types';
+import { ActivityWidget } from './Dashboard';
 
 type CoachTab = 'plan' | 'history' | 'calendar' | 'cardio' | 'measurements' | 'progress' | 'training' | 'info';
 
@@ -17,6 +18,7 @@ export default function CoachDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<CoachTab>('plan');
   
   const [isEditingPlan, setIsEditingPlan] = useState(false);
@@ -33,7 +35,7 @@ export default function CoachDashboard() {
     if (res.success) {
       setUserRole(res.role as any);
       setCurrentCoachName(res.name || 'Super Admin');
-      refreshData(res.role as any, authCode);
+      await refreshData(res.role as any, authCode);
     } else alert(res.error);
     setLoading(false);
   };
@@ -45,6 +47,27 @@ export default function CoachDashboard() {
     } else {
       const list = await remoteStorage.fetchClients(code);
       setClients(list);
+    }
+  };
+
+  const handleGlobalRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+        if (userRole) {
+            await refreshData(userRole, authCode);
+            if (selectedCoachId && userRole === 'super-admin') {
+                const list = await remoteStorage.fetchClients(selectedCoachId);
+                setClients(list);
+            }
+            if (selectedClient) {
+                await loadClientDetail(selectedClient.code);
+            }
+        }
+    } catch (e) {
+        console.error("Refresh error", e);
+    } finally {
+        setRefreshing(false);
     }
   };
 
@@ -63,9 +86,13 @@ export default function CoachDashboard() {
     if (res.success) {
       setSelectedClient(res);
       setEditedPlan(res.plan || {});
-      setActiveTab('plan');
-      setActiveTraining(null);
-      setIsEditingPlan(false);
+      // Reset states that might be stale
+      if (activeTab === 'training' && !activeTraining) {
+          // keep it
+      } else if (!activeTraining) {
+          // only reset plan editing if not currently training
+          setIsEditingPlan(false);
+      }
     }
     setLoading(false);
   };
@@ -81,7 +108,30 @@ export default function CoachDashboard() {
     });
   }, [clients, searchQuery]);
 
-  // --- Deletion Handlers ---
+  // Flattened history for visual calendar
+  const flatHistory = useMemo(() => {
+    if (!selectedClient?.history) return [];
+    if (Array.isArray(selectedClient.history)) return selectedClient.history;
+    const all: any[] = [];
+    Object.values(selectedClient.history).forEach((h: any) => {
+        if (Array.isArray(h)) all.push(...h);
+    });
+    return all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }, [selectedClient]);
+
+  useEffect(() => {
+    if (selectedClient && activeTab === 'calendar') {
+        if (selectedClient.history) {
+            Object.entries(selectedClient.history).forEach(([id, h]) => {
+                storage.saveHistory(id, h as any[]);
+            });
+        }
+        if (selectedClient.extras) {
+            storage.saveCardioSessions(selectedClient.extras.cardio || []);
+        }
+    }
+  }, [selectedClient, activeTab]);
+
   const confirmDeleteClient = (client: any) => {
     setItemToDelete(client);
     setModalType('confirm-delete-client');
@@ -137,7 +187,6 @@ export default function CoachDashboard() {
     setSelectedClient({ ...selectedClient, coachNotes: info });
   };
 
-  // --- Training Plan Logic ---
   const handleSavePlan = async () => {
     if (!selectedClient || !editedPlan) return;
     setLoading(true);
@@ -188,18 +237,36 @@ export default function CoachDashboard() {
   const finishLiveTraining = async () => {
     if(!activeTraining || !selectedClient) return;
     if(!window.confirm("Zapisać trening?")) return;
+    
+    setLoading(true);
     const d = new Date();
     const dateStr = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getFullYear()} (Trener: ${currentCoachName})`;
     const sessionResults: any = {};
+    
     Object.entries(activeTraining.results).forEach(([exId, sets]: any) => {
         const formattedSets = sets.filter((s: any) => s.kg || s.reps).map((s: any) => `${s.kg || '0'}kg x ${s.reps || '0'}`);
         if (formattedSets.length > 0) sessionResults[exId] = formattedSets.join(' | ');
     });
-    const newHistory = [{ date: dateStr, timestamp: d.getTime(), results: sessionResults, workoutId: activeTraining.workoutId }, ...(selectedClient.history || [])];
-    setLoading(true);
-    await remoteStorage.saveToCloud(selectedClient.code, 'history', newHistory);
-    alert("Zapisano!");
-    loadClientDetail(selectedClient.code);
+    
+    const newEntry = { 
+        date: dateStr, 
+        timestamp: d.getTime(), 
+        results: sessionResults, 
+        workoutId: activeTraining.workoutId 
+    };
+    
+    // Immediate local update for better UX
+    const updatedHistory = [newEntry, ...(flatHistory || [])];
+    const success = await remoteStorage.saveToCloud(selectedClient.code, 'history', updatedHistory);
+    
+    if (success) {
+        alert("Zapisano!");
+        // Force refresh state from cloud to ensure perfect sync
+        await loadClientDetail(selectedClient.code);
+        setActiveTraining(null);
+    } else {
+        alert("Błąd zapisu w chmurze.");
+    }
     setLoading(false);
   };
 
@@ -225,16 +292,23 @@ export default function CoachDashboard() {
             <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-black italic shadow-lg">B</div>
             <h2 className="text-[10px] font-black text-white italic uppercase tracking-widest">{userRole}</h2>
           </div>
-          <button onClick={() => window.location.reload()} className="text-gray-600 hover:text-red-500 transition"><i className="fas fa-sign-out-alt"></i></button>
+          <div className="flex items-center space-x-3">
+            <button 
+                onClick={handleGlobalRefresh} 
+                title="Odśwież dane z chmury"
+                className={`text-gray-600 hover:text-blue-500 transition ${refreshing ? 'animate-spin text-blue-500' : ''}`}
+            >
+                <i className="fas fa-sync-alt"></i>
+            </button>
+            <button onClick={() => window.location.reload()} className="text-gray-600 hover:text-red-500 transition"><i className="fas fa-sign-out-alt"></i></button>
+          </div>
         </div>
-
         <div className="p-4">
           <div className="relative">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px]"></i>
             <input type="text" placeholder="Szukaj podopiecznego..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-black border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" />
           </div>
         </div>
-
         <div className="flex-grow overflow-y-auto p-4 space-y-6">
           {userRole === 'super-admin' && (
             <div>
@@ -252,7 +326,6 @@ export default function CoachDashboard() {
               ))}
             </div>
           )}
-
           <div>
             <div className="flex justify-between items-center mb-3 px-2">
               <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Podopieczni ({filteredClients.length})</span>
@@ -265,7 +338,6 @@ export default function CoachDashboard() {
                      <span>{c.name}</span>
                      {c.lastActivity && <span className="text-[7px] text-gray-600 ml-2">Aktywny: {new Date(c.lastActivity).toLocaleDateString()}</span>}
                    </div>
-                   <div className="text-[8px] font-mono opacity-30 mt-0.5">{c.code}</div>
                 </button>
                 <button onClick={() => confirmDeleteClient(c)} className="absolute right-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
               </div>
@@ -274,7 +346,6 @@ export default function CoachDashboard() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-grow p-8 overflow-y-auto">
         {selectedClient ? (
           <div className="max-w-6xl mx-auto animate-fade-in">
@@ -291,10 +362,10 @@ export default function CoachDashboard() {
                   </div>
                 </div>
               </div>
-              
               <nav className="flex bg-[#161616] p-1 rounded-2xl border border-gray-800 shadow-2xl overflow-x-auto">
                 <TabBtn active={activeTab === 'plan'} onClick={() => setActiveTab('plan')} label="PLAN" icon="fa-dumbbell" />
                 <TabBtn active={activeTab === 'history'} onClick={() => setActiveTab('history')} label="HISTORIA" icon="fa-history" />
+                <TabBtn active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} label="KALENDARZ" icon="fa-calendar-alt" />
                 <TabBtn active={activeTab === 'cardio'} onClick={() => setActiveTab('cardio')} label="CARDIO" icon="fa-running" />
                 <TabBtn active={activeTab === 'measurements'} onClick={() => setActiveTab('measurements')} label="POMIARY" icon="fa-ruler" />
                 <TabBtn active={activeTab === 'info'} onClick={() => setActiveTab('info')} label="INFO" icon="fa-info-circle" color="text-blue-400" />
@@ -303,23 +374,35 @@ export default function CoachDashboard() {
               </nav>
             </header>
 
-            {/* TAB: INFO (NOTATKI TRENERSKIE) */}
-            {activeTab === 'info' && (
-              <div className="space-y-6 animate-fade-in">
-                <div className="bg-[#161616] p-8 rounded-3xl border border-blue-500/20 shadow-2xl">
-                  <h3 className="text-xl font-black text-white italic uppercase mb-6 flex items-center"><i className="fas fa-user-tag text-blue-500 mr-3"></i>Prywatne Notatki o Podopiecznym</h3>
-                  <p className="text-gray-500 text-xs mb-4">Te informacje są widoczne tylko dla Ciebie. Możesz tu wpisać historię kontuzji, specyficzne cechy ruchu lub cele długoterminowe.</p>
-                  <textarea 
-                    value={selectedClient.coachNotes || ''} 
-                    onChange={e => saveInfo(e.target.value)} 
-                    placeholder="Wpisz tu ważne informacje..." 
-                    className="w-full h-96 bg-black border border-gray-800 rounded-2xl p-6 text-sm text-gray-300 outline-none focus:border-blue-500 transition leading-relaxed" 
-                  />
+            {activeTab === 'calendar' && (
+              <div className="space-y-10 animate-fade-in">
+                <ActivityWidget workouts={selectedClient.plan || {}} logo={selectedClient.logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'} />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {flatHistory.map((h: any, i: number) => (
+                        <div key={i} className="bg-[#161616] p-6 rounded-2xl border border-gray-800 shadow-xl border-l-4 border-blue-600">
+                            <div className="text-blue-500 font-black text-xs uppercase mb-3 italic">{h.date}</div>
+                            <div className="text-white font-black text-lg uppercase italic mb-4 truncate">{selectedClient.plan?.[h.workoutId]?.title || 'Trening'}</div>
+                            <div className="space-y-1 opacity-60">
+                                {Object.keys(h.results).slice(0, 3).map(exId => (
+                                    <div key={exId} className="text-[10px] truncate">• {selectedClient.plan?.[h.workoutId]?.exercises.find((e:any)=>e.id===exId)?.name || 'Ćwiczenie'}</div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    {flatHistory.length === 0 && <p className="col-span-full text-center opacity-20 py-20 uppercase font-black italic">Brak historii sesji</p>}
                 </div>
               </div>
             )}
 
-            {/* TAB: PLAN */}
+            {activeTab === 'info' && (
+              <div className="space-y-6 animate-fade-in">
+                <div className="bg-[#161616] p-8 rounded-3xl border border-blue-500/20 shadow-2xl">
+                  <h3 className="text-xl font-black text-white italic uppercase mb-6 flex items-center"><i className="fas fa-user-tag text-blue-500 mr-3"></i>Prywatne Notatki</h3>
+                  <textarea value={selectedClient.coachNotes || ''} onChange={e => saveInfo(e.target.value)} placeholder="Wpisz tu ważne informacje..." className="w-full h-96 bg-black border border-gray-800 rounded-2xl p-6 text-sm text-gray-300 outline-none focus:border-blue-500 transition leading-relaxed" />
+                </div>
+              </div>
+            )}
+
             {activeTab === 'plan' && (
               <div className="space-y-10">
                 <div className="flex justify-end space-x-3 sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur py-4">
@@ -332,7 +415,6 @@ export default function CoachDashboard() {
                      </>
                    )}
                 </div>
-
                 {Object.entries(editedPlan || {}).map(([wId, workout]: any) => (
                   <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-8 shadow-2xl space-y-8 animate-fade-in">
                     <div className="flex justify-between items-center border-b border-gray-800 pb-6">
@@ -342,20 +424,10 @@ export default function CoachDashboard() {
                         </div>
                         {isEditingPlan && <button onClick={() => { delete editedPlan[wId]; setEditedPlan({...editedPlan}); }} className="text-red-900 hover:text-red-500 transition p-3 bg-red-900/10 rounded-xl"><i className="fas fa-trash"></i></button>}
                     </div>
-
                     <div className="space-y-2 overflow-x-auto">
                         <div className="grid grid-cols-12 gap-2 px-4 mb-2 text-[10px] font-black text-gray-600 uppercase italic tracking-widest min-w-[800px]">
-                            <div className="col-span-1">#</div>
-                            <div className="col-span-4">Ćwiczenie</div>
-                            <div className="col-span-1 text-center">S</div>
-                            <div className="col-span-1 text-center">Reps</div>
-                            <div className="col-span-1 text-center">Tempo</div>
-                            <div className="col-span-1 text-center">RIR</div>
-                            <div className="col-span-1 text-center">Rest</div>
-                            <div className="col-span-1 text-center">Typ</div>
-                            <div className="col-span-1 text-right">Usuń</div>
+                            <div className="col-span-1">#</div><div className="col-span-4">Ćwiczenie</div><div className="col-span-1 text-center">S</div><div className="col-span-1 text-center">Reps</div><div className="col-span-1 text-center">Tempo</div><div className="col-span-1 text-center">RIR</div><div className="col-span-1 text-center">Rest</div><div className="col-span-1 text-center">Typ</div><div className="col-span-1 text-right">Usuń</div>
                         </div>
-
                         {workout.exercises?.map((ex: any, idx: number) => (
                         <div key={ex.id} className="grid grid-cols-12 gap-2 items-center bg-black/40 p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition min-w-[800px]">
                            <div className="col-span-1 font-black text-blue-600 italic text-sm">{idx + 1}</div>
@@ -371,9 +443,7 @@ export default function CoachDashboard() {
                            <div className="col-span-1"><input disabled={!isEditingPlan} type="number" value={ex.rest} onChange={e => updateExField(wId, idx, 'rest', parseInt(e.target.value))} className="w-full bg-black border border-gray-800 text-white p-2.5 rounded text-center text-xs font-black" /></div>
                            <div className="col-span-1">
                                <select disabled={!isEditingPlan} value={ex.type} onChange={e => updateExField(wId, idx, 'type', e.target.value)} className="w-full bg-black border border-gray-800 text-gray-400 p-2 rounded text-[9px] font-black uppercase text-center outline-none">
-                                   <option value="standard">STD</option>
-                                   <option value="reps_only">REPS</option>
-                                   <option value="time">TIME</option>
+                                   <option value="standard">STD</option><option value="reps_only">REPS</option><option value="time">TIME</option>
                                </select>
                            </div>
                            <div className="col-span-1 flex justify-end">
@@ -389,7 +459,6 @@ export default function CoachDashboard() {
               </div>
             )}
 
-            {/* TAB: PROWADŹ (TABLET MODE) */}
             {activeTab === 'training' && (
                 <div className="space-y-6 animate-fade-in">
                     {!activeTraining ? (
@@ -408,7 +477,10 @@ export default function CoachDashboard() {
                                     <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{selectedClient.plan[activeTraining.workoutId].title}</h3>
                                     <p className="text-yellow-500 text-[10px] font-black uppercase tracking-widest mt-1">TRENING NA ŻYWO</p>
                                 </div>
-                                <button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-10 py-5 rounded-2xl font-black text-white uppercase italic shadow-2xl transition transform active:scale-95">ZAKOŃCZ I ZAPISZ</button>
+                                <div className="flex items-center space-x-4">
+                                    <button onClick={() => setActiveTraining(null)} className="text-gray-500 hover:text-white font-bold text-xs uppercase italic">Anuluj</button>
+                                    <button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-10 py-5 rounded-2xl font-black text-white uppercase italic shadow-2xl transition transform active:scale-95">ZAKOŃCZ I ZAPISZ</button>
+                                </div>
                             </div>
                             <div className="space-y-6">
                                 {selectedClient.plan[activeTraining.workoutId].exercises.map((ex: any) => (
@@ -441,12 +513,10 @@ export default function CoachDashboard() {
         )}
       </main>
 
-      {/* MODALE KONFIGURACYJNE I POTWIERDZENIA */}
       {modalType && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-6 animate-fade-in">
           <div className="bg-[#161616] border border-gray-800 rounded-3xl p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
-            
             {modalType === 'add-coach' || modalType === 'add-client' ? (
               <>
                 <h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3>
@@ -457,7 +527,7 @@ export default function CoachDashboard() {
                     setLoading(true);
                     if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name);
                     else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode);
-                    setModalType(null); setForm({name:'', code:''}); handleLogin();
+                    setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh();
                     setLoading(false);
                   }} className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95">UTWÓRZ</button>
                 </div>
@@ -466,7 +536,7 @@ export default function CoachDashboard() {
               <div className="text-center">
                 <i className="fas fa-exclamation-triangle text-red-600 text-5xl mb-6"></i>
                 <h3 className="text-xl font-black text-white uppercase italic mb-2">Czy na pewno?</h3>
-                <p className="text-gray-500 text-xs mb-8">Usunięcie {itemToDelete?.name} spowoduje bezpowrotną utratę danych w bazie Firebase.</p>
+                <p className="text-gray-500 text-xs mb-8">Usunięcie {itemToDelete?.name} spowoduje bezpowrotną utratę danych.</p>
                 <div className="flex space-x-4">
                   <button onClick={modalType === 'confirm-delete-client' ? handleDeleteClient : handleDeleteCoach} className="flex-1 bg-red-600 py-4 rounded-xl font-black uppercase italic text-white shadow-xl transition active:scale-95">USUŃ</button>
                   <button onClick={() => setModalType(null)} className="flex-1 bg-gray-800 py-4 rounded-xl font-black uppercase italic text-gray-500">ANULUJ</button>

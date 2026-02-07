@@ -127,7 +127,7 @@ export default function Dashboard() {
 }
 
 // --- ACTIVITY WIDGET (CALENDAR + SUMMARY) ---
-function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
+export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
     const [viewMode, setViewMode] = useState<'calendar' | 'summary'>('calendar');
     const [viewDate, setViewDate] = useState(new Date());
     
@@ -135,75 +135,60 @@ function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
     const daysShort = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
 
     const { dayStatus, lastSessionStats } = useMemo(() => {
-        const status: Record<string, { strength: boolean; cardio: boolean; mobility: boolean }> = {};
+        const status: Record<string, { T: boolean; C: boolean; M: boolean }> = {};
         let allEntries: any[] = [];
         
         const ensureDate = (d: string) => {
-            if (!status[d]) status[d] = { strength: false, cardio: false, mobility: false };
+            if (!status[d]) status[d] = { T: false, C: false, M: false };
         };
 
+        // Handle Strength
         Object.keys(workouts).forEach(id => {
             const hist = storage.getHistory(id);
             hist.forEach(h => {
                 const datePart = h.date.split(/[ ,(]/)[0].replace(/,/g, ''); 
                 ensureDate(datePart);
-                status[datePart].strength = true;
+                status[datePart].T = true;
                 allEntries.push({ ...h, workoutId: id, workoutTitle: workouts[id].title });
             });
         });
 
+        // Handle Cardio & Mobility
         const cardio = storage.getCardioSessions();
         cardio.forEach(c => {
             const [y, m, d] = c.date.split('-');
             const datePart = `${d.toString().padStart(2, '0')}.${m.toString().padStart(2, '0')}.${y}`;
             ensureDate(datePart);
-            
-            if (c.type === 'mobility') {
-                status[datePart].mobility = true;
-            } else {
-                status[datePart].cardio = true;
-            }
+            if (c.type === 'mobility') status[datePart].M = true;
+            else status[datePart].C = true;
         });
 
         let stats = null;
         if (allEntries.length > 0) {
             allEntries.sort((a, b) => b.timestamp - a.timestamp);
             const latest = allEntries[0];
-            
-            let totalWeight = 0;
-            let totalReps = 0;
-            let totalSets = 0;
-            let totalExercises = Object.keys(latest.results).length;
-
+            let totalWeight = 0, totalReps = 0, totalSets = 0;
             Object.values(latest.results).forEach((res: any) => {
                 const sets = res.split('|');
                 totalSets += sets.length;
                 sets.forEach((s: string) => {
                     const weightMatch = s.match(/(\d+(?:[.,]\d+)?)\s*kg/i);
                     const repsMatch = s.match(/(?:x\s*|(\d+)\s*p)(\d+)?/i);
-                    
                     const weight = weightMatch ? parseFloat(weightMatch[1].replace(',', '.')) : 0;
                     const reps = repsMatch ? parseInt(repsMatch[2] || repsMatch[1]) : 0;
-                    
                     totalWeight += (weight * reps);
                     totalReps += reps;
                 });
             });
-
             const durationMatch = latest.date.match(/\((.*?)\)/);
-            const duration = durationMatch ? durationMatch[1] : '--:--';
-
             stats = {
                 title: latest.workoutTitle,
                 date: latest.date.split(',')[0],
                 totalWeight: Math.round(totalWeight),
-                totalReps,
-                totalSets,
-                totalExercises,
-                duration
+                totalReps, totalSets, totalExercises: Object.keys(latest.results).length,
+                duration: durationMatch ? durationMatch[1] : '--:--'
             };
         }
-
         return { dayStatus: status, lastSessionStats: stats };
     }, [workouts]);
 
@@ -222,23 +207,11 @@ function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
 
     return (
         <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-4 border border-gray-800 relative overflow-hidden transition-all">
-            
             <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-2 relative z-10">
                 <div className="flex space-x-4">
-                    <button 
-                        onClick={() => setViewMode('calendar')}
-                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'calendar' ? 'text-red-500' : 'text-gray-600'}`}
-                    >
-                        Kalendarz
-                    </button>
-                    <button 
-                        onClick={() => setViewMode('summary')}
-                        className={`text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'summary' ? 'text-red-500' : 'text-gray-600'}`}
-                    >
-                        Ostatni Trening
-                    </button>
+                    <button onClick={() => setViewMode('calendar')} className={`text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'calendar' ? 'text-red-500' : 'text-gray-600'}`}>Kalendarz</button>
+                    <button onClick={() => setViewMode('summary')} className={`text-[10px] font-black uppercase tracking-widest transition-colors ${viewMode === 'summary' ? 'text-red-500' : 'text-gray-600'}`}>Ostatni Trening</button>
                 </div>
-                
                 {viewMode === 'calendar' && (
                     <div className="flex items-center space-x-2">
                         <button onClick={prevMonth} className="text-gray-600 hover:text-white"><i className="fas fa-chevron-left text-[10px]"></i></button>
@@ -261,74 +234,23 @@ function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
                                 const mStr = (month + 1).toString().padStart(2, '0');
                                 const status = dayStatus[`${dStr}.${mStr}.${year}`];
                                 
-                                const hasStrength = status?.strength;
-                                const hasCardio = status?.cardio;
-                                const hasMobility = status?.mobility;
-                                
-                                let activityLabel = "";
-                                let bgClass = "bg-[#121212]";
-                                let borderClass = "border-gray-800";
-                                
-                                // Priorytety etykiet i kolorów
-                                if (hasStrength) {
-                                    if (hasCardio) activityLabel = "TR + CA";
-                                    else if (hasMobility) activityLabel = "TR + MO";
-                                    else activityLabel = "TRENING";
-                                    borderClass = "border-gray-800"; // Logo takes bg
-                                } else if (hasCardio) {
-                                    if (hasMobility) activityLabel = "CA + MO";
-                                    else activityLabel = "CARDIO";
-                                    bgClass = "bg-red-900/10";
-                                } else if (hasMobility) {
-                                    activityLabel = "MOBILITY";
-                                    bgClass = "bg-purple-900/20";
-                                }
-
-                                const hasAny = hasStrength || hasCardio || hasMobility;
+                                const activeTypes = [];
+                                if (status?.T) activeTypes.push({ color: 'bg-red-600', letter: 'T' });
+                                if (status?.C) activeTypes.push({ color: 'bg-green-500', letter: 'C' });
+                                if (status?.M) activeTypes.push({ color: 'bg-purple-600', letter: 'M' });
 
                                 return (
-                                    <div key={day} className={`aspect-square rounded-lg flex items-center justify-center relative border transition overflow-hidden ${borderClass} ${bgClass} ${hasStrength ? 'shadow-[0_0_10px_rgba(239,68,68,0.2)]' : ''}`}>
-                                        {/* Day Number */}
-                                        <span className={`absolute top-0.5 left-1 text-[8px] font-black z-20 ${hasAny ? 'text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,1)]' : 'text-gray-700'}`}>
+                                    <div key={day} className={`aspect-square rounded-lg flex items-center justify-center relative border border-gray-800 transition overflow-hidden bg-[#121212]`}>
+                                        <span className={`absolute top-0.5 left-1 text-[8px] font-black z-20 ${activeTypes.length > 0 ? 'text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,1)]' : 'text-gray-700'}`}>
                                             {day}
                                         </span>
-
-                                        {/* Icons Layer */}
-                                        {hasStrength && (
-                                            <div className="absolute inset-0 w-full h-full">
-                                                <img src={logo} className="w-full h-full object-cover grayscale opacity-30" />
-                                                {(hasCardio || hasMobility) && <div className="absolute inset-0 bg-black/40"></div>}
-                                            </div>
-                                        )}
-
-                                        {/* Only Cardio Icon */}
-                                        {hasCardio && !hasStrength && !hasMobility && (
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <i className="fas fa-heartbeat text-red-500 text-sm opacity-50"></i>
-                                            </div>
-                                        )}
-
-                                        {/* Only Mobility Icon */}
-                                        {hasMobility && !hasStrength && !hasCardio && (
-                                            <div className="absolute inset-0 flex items-center justify-center">
-                                                <i className="fas fa-universal-access text-purple-500 text-sm opacity-60"></i>
-                                            </div>
-                                        )}
-                                        
-                                        {/* Mixed Icons (if not strength, but both extras) */}
-                                        {!hasStrength && hasCardio && hasMobility && (
-                                            <div className="absolute inset-0 flex items-center justify-center space-x-1">
-                                                <i className="fas fa-heartbeat text-red-500 text-[10px] opacity-60"></i>
-                                                <i className="fas fa-universal-access text-purple-500 text-[10px] opacity-60"></i>
-                                            </div>
-                                        )}
-
-                                        {/* Activity Label at Bottom */}
-                                        {hasAny && (
-                                            <div className={`absolute bottom-0 left-0 right-0 py-0.5 z-20 border-t ${hasMobility && !hasStrength && !hasCardio ? 'bg-purple-700 border-purple-500/50' : 'bg-red-600 border-red-500/50'}`}>
-                                                <div className="text-[6px] font-black text-white uppercase tracking-tighter text-center leading-none">
-                                                    {activityLabel}
-                                                </div>
+                                        {activeTypes.length > 0 && (
+                                            <div className={`w-full h-full grid ${activeTypes.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} ${activeTypes.length > 2 ? 'grid-rows-2' : ''}`}>
+                                                {activeTypes.map((t, i) => (
+                                                    <div key={i} className={`${t.color} flex items-center justify-center relative ${activeTypes.length === 3 && i === 2 ? 'col-span-2' : ''}`}>
+                                                        <span className="text-[10px] font-black text-white italic drop-shadow-md">{t.letter}</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -345,9 +267,7 @@ function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
                                         <div className="text-[9px] text-red-500 font-black uppercase tracking-tighter italic">Ostatnia Sesja</div>
                                         <div className="text-lg font-black text-white italic uppercase truncate tracking-tighter">{lastSessionStats.title}</div>
                                     </div>
-                                    <div className="text-right ml-2">
-                                        <div className="text-[10px] text-gray-500 font-bold">{lastSessionStats.date}</div>
-                                    </div>
+                                    <div className="text-right ml-2"><div className="text-[10px] text-gray-500 font-bold">{lastSessionStats.date}</div></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">
                                     <StatItem icon="fa-weight-hanging" label="Tonaż" value={lastSessionStats.totalWeight} unit="kg" color="text-red-500" />
@@ -357,15 +277,11 @@ function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
                                 </div>
                             </div>
                         ) : (
-                            <div className="text-center py-10 opacity-20">
-                                <i className="fas fa-dumbbell text-4xl mb-2"></i>
-                                <div className="text-[10px] font-black uppercase italic">Brak danych historycznych</div>
-                            </div>
+                            <div className="text-center py-10 opacity-20"><i className="fas fa-dumbbell text-4xl mb-2"></i><div className="text-[10px] font-black uppercase italic">Brak danych</div></div>
                         )}
                     </div>
                 )}
             </div>
-
             <div className="flex justify-center space-x-2 mt-4">
                 <button onClick={() => setViewMode('calendar')} className={`w-2 h-2 rounded-full transition-all ${viewMode === 'calendar' ? 'bg-red-500 w-6' : 'bg-gray-700'}`}></button>
                 <button onClick={() => setViewMode('summary')} className={`w-2 h-2 rounded-full transition-all ${viewMode === 'summary' ? 'bg-red-500 w-6' : 'bg-gray-700'}`}></button>
