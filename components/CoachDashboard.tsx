@@ -419,6 +419,11 @@ export default function CoachDashboard() {
     setForm({ ...form, name: val, code: suggestedCode });
   };
 
+  const switchToClientView = () => {
+    localStorage.setItem('bear_gym_role_pref', 'client');
+    window.location.hash = '#/';
+  };
+
   if (!userRole) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
@@ -467,9 +472,10 @@ export default function CoachDashboard() {
             <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-black italic shadow-lg">B</div>
             <h2 className="text-[10px] font-black text-white italic uppercase tracking-widest">{userRole}</h2>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             <button onClick={handleGlobalRefresh} title="Odśwież" className={`text-gray-600 hover:text-blue-500 transition ${refreshing ? 'animate-spin text-blue-500' : ''}`}><i className="fas fa-sync-alt"></i></button>
             <button onClick={() => setIsMobileSidebarOpen(false)} className="md:hidden text-gray-600 hover:text-white transition"><i className="fas fa-times"></i></button>
+            <button onClick={switchToClientView} title="Widok Klienta" className="text-gray-600 hover:text-green-500 transition"><i className="fas fa-user"></i></button>
             <button onClick={() => setIsDesktopSidebarCollapsed(true)} className="hidden md:block text-gray-600 hover:text-white transition"><i className="fas fa-angles-left"></i></button>
             <button onClick={() => window.location.reload()} className="text-gray-600 hover:text-red-500 transition"><i className="fas fa-sign-out-alt"></i></button>
           </div>
@@ -840,7 +846,7 @@ export default function CoachDashboard() {
       </main>
 
       {modalType && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-4 md:p-6 animate-fade-in">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm p-4 md:p-6 animate-fade-in">
           <div className="bg-[#161616] border border-gray-800 rounded-3xl p-6 md:p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
             {modalType === 'add-coach' || modalType === 'add-client' ? (
