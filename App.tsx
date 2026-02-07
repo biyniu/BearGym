@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
@@ -27,7 +28,6 @@ interface AppContextType {
   updateLogo: (s: string) => void;
   playAlarm: () => void;
   syncData: (type: 'history' | 'extras' | 'plan', data: any) => void;
-  // Globalne stopery
   workoutStartTime: number | null;
   setWorkoutStartTime: (t: number | null) => void;
   restTimer: { timeLeft: number | null, duration: number };
@@ -49,7 +49,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-[#121212] text-[#e0e0e0] font-sans">
-      {/* HEADER FIXED - Zmiana na fixed, aby klawiatura go nie wypychała */}
       <header className="fixed top-0 left-0 right-0 max-w-md mx-auto p-4 flex justify-between items-center border-b border-gray-700 bg-neutral-900 z-50 shadow-md h-16">
         <div className="flex items-center space-x-3 overflow-hidden">
           <div className="w-10 h-10 rounded-full overflow-hidden border border-red-600 bg-gray-800 shrink-0 shadow-lg">
@@ -78,37 +77,26 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {!isHome && (
           <div className="flex items-center space-x-2">
             {isWorkout && (
-               <button 
-                onClick={() => navigate('/settings')} 
-                className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg border border-gray-700"
-              >
+               <button onClick={() => navigate('/settings')} className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg border border-gray-700">
                 <i className="fas fa-cog text-sm"></i>
               </button>
             )}
-            <button 
-              onClick={() => navigate('/')} 
-              className="text-gray-300 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600 flex items-center text-xs font-bold"
-            >
+            <button onClick={() => navigate('/')} className="text-gray-300 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600 flex items-center text-xs font-bold">
               <i className="fas fa-arrow-left mr-1"></i> WRÓĆ
             </button>
           </div>
         )}
       </header>
 
-      {/* Padding top dodany, aby treść nie chowała się pod fixed header */}
       <div className="p-3 space-y-4 flex-grow pb-24 pt-20">
         {children}
       </div>
 
-      {/* ASYSTENT AI - POKAŻ TYLKO GDY ZALOGOWANY */}
       {clientCode && <AICoachWidget />}
 
       {isHome && (
         <div className="fixed bottom-6 right-6 z-50 animate-bounce-slow">
-           <button 
-            onClick={() => navigate('/settings')} 
-            className="bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl transition transform hover:scale-110 active:scale-90"
-          >
+           <button onClick={() => navigate('/settings')} className="bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl transition transform hover:scale-110 active:scale-90">
             <i className="fas fa-cog"></i>
           </button>
         </div>
@@ -147,25 +135,27 @@ export default function App() {
     return local ? JSON.parse(local) : {};
   });
   const [settings, setSettings] = useState<AppSettings>(localStorageCache.get('app_settings') || DEFAULT_SETTINGS);
-  
-  // Ref dla settings, aby timer zawsze widział aktualny stan
   const settingsRef = useRef(settings);
-  useEffect(() => {
-    settingsRef.current = settings;
-  }, [settings]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   const [logo, setLogo] = useState<string>(localStorage.getItem('app_logo') || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP');
   const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  // Stopery
   const [workoutStartTime, setWorkoutStartTimeState] = useState<number | null>(() => {
     const saved = sessionStorage.getItem('workout_start_time');
     return saved ? parseInt(saved) : null;
   });
   const [restTimer, setRestTimer] = useState<{ timeLeft: number | null, duration: number }>({ timeLeft: null, duration: 0 });
+  const restEndTimeRef = useRef<number | null>(null);
   const restIntervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+  }, []);
 
   const setWorkoutStartTime = (t: number | null) => {
     if (t) sessionStorage.setItem('workout_start_time', t.toString());
@@ -176,138 +166,145 @@ export default function App() {
   const playSoundNote = (ctx: AudioContext, freq: number, startTime: number, vol: number, duration: number = 1.2, type: OscillatorType = 'sine') => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
       osc.type = type;
       osc.frequency.setValueAtTime(freq, startTime);
-      
       osc.connect(gain);
       gain.connect(ctx.destination);
-      
       osc.start(startTime);
       osc.stop(startTime + duration);
-      
-      // Envelope
       gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(vol, startTime + 0.05); // Attack
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.1); // Decay
+      gain.gain.linearRampToValueAtTime(vol, startTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.1);
   };
 
   const playAlarm = useCallback(() => {
-    const currentSettings = settingsRef.current; // Używamy refa, aby mieć świeże dane wewnątrz interwału
-
-    // 1. Dźwięk
+    const currentSettings = settingsRef.current;
     const CtxClass = window.AudioContext || (window as any).webkitAudioContext;
     if (CtxClass) {
       let ctx = audioCtx || new CtxClass();
       if (!audioCtx) setAudioCtx(ctx);
       if (ctx.state === 'suspended') ctx.resume();
-      
       const now = ctx.currentTime;
       const vol = currentSettings.volume !== undefined ? currentSettings.volume : 0.5;
       
       switch (currentSettings.soundType) {
-        case 'siren': { // Głośna Syrena
+        case 'siren': {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            osc.type = 'sawtooth'; // Przebija się przez hałas
-            
+            osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(600, now);
-            osc.frequency.linearRampToValueAtTime(1500, now + 0.5); // Up
-            osc.frequency.linearRampToValueAtTime(600, now + 1.0);  // Down
-            osc.frequency.linearRampToValueAtTime(1500, now + 1.5); // Up
-            osc.frequency.linearRampToValueAtTime(600, now + 2.0);  // Down
-            
+            osc.frequency.linearRampToValueAtTime(1500, now + 0.5);
+            osc.frequency.linearRampToValueAtTime(600, now + 1.0);
+            osc.frequency.linearRampToValueAtTime(1500, now + 1.5);
+            osc.frequency.linearRampToValueAtTime(600, now + 2.0);
             osc.connect(gain);
             gain.connect(ctx.destination);
-            
             osc.start(now);
             osc.stop(now + 2.5);
-            
             gain.gain.setValueAtTime(vol, now);
             gain.gain.linearRampToValueAtTime(0, now + 2.5);
             break;
         }
-        case 'school_bell': { // Dzwonek szkolny
-            // Symulacja dzwonka elektrycznego (szybka modulacja)
+        case 'school_bell': {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             const lfo = ctx.createOscillator();
             const lfoGain = ctx.createGain();
-
-            osc.type = 'square'; // Metaliczny dźwięk
+            osc.type = 'square';
             osc.frequency.setValueAtTime(1200, now);
-
-            lfo.type = 'square'; // Modulator (młoteczek)
-            lfo.frequency.setValueAtTime(25, now); // 25 uderzeń na sekundę
-
+            lfo.type = 'square';
+            lfo.frequency.setValueAtTime(25, now);
             lfo.connect(lfoGain);
             lfoGain.connect(gain.gain);
-            lfoGain.gain.value = vol; // Głębokość modulacji
-
+            lfoGain.gain.value = vol;
             osc.connect(gain);
             gain.connect(ctx.destination);
-
             osc.start(now);
             lfo.start(now);
             osc.stop(now + 2.5);
             lfo.stop(now + 2.5);
-            
-            //Envelope na wyjściu żeby nie strzelało
-            gain.gain.setValueAtTime(vol * 0.5, now); // Start volume
+            gain.gain.setValueAtTime(vol * 0.5, now);
             gain.gain.linearRampToValueAtTime(0, now + 2.5);
             break;
         }
-        case 'bell': // Classic Bell (C5)
-            playSoundNote(ctx, 523.25, now, vol, 2.0);
-            break;
-        case 'double_bell': // Double Soft Bell (C5 + C5)
+        case 'bell': playSoundNote(ctx, 523.25, now, vol, 2.0); break;
+        case 'double_bell': 
             playSoundNote(ctx, 523.25, now, vol, 1.5);
             playSoundNote(ctx, 523.25, now + 0.3, vol, 2.0);
             break;
-        case 'chord': // Soft Major Triad Arpeggio (C-E-G)
+        case 'chord': 
             playSoundNote(ctx, 523.25, now, vol * 0.5, 2.0);
             playSoundNote(ctx, 659.25, now + 0.1, vol * 0.5, 2.0);
             playSoundNote(ctx, 783.99, now + 0.2, vol * 0.5, 2.5);
             break;
-        case 'cosmic': // Higher pitch, dreamy
-            playSoundNote(ctx, 880.00, now, vol * 0.4, 2.0); // A5
-            playSoundNote(ctx, 1108.73, now + 0.15, vol * 0.4, 2.5); // C#6
+        case 'cosmic': 
+            playSoundNote(ctx, 880.00, now, vol * 0.4, 2.0);
+            playSoundNote(ctx, 1108.73, now + 0.15, vol * 0.4, 2.5);
             break;
-        case 'gong': // Low Frequency, long sustain
-            playSoundNote(ctx, 196.00, now, vol * 0.8, 3.0); // G3
-            playSoundNote(ctx, 392.00, now, vol * 0.4, 2.5); // G4 harmonic
+        case 'gong': 
+            playSoundNote(ctx, 196.00, now, vol * 0.8, 3.0);
+            playSoundNote(ctx, 392.00, now, vol * 0.4, 2.5);
             break;
-        case 'victory': // Rising scale (C-E-G-C)
+        case 'victory': 
             playSoundNote(ctx, 523.25, now, vol * 0.4, 0.5);
             playSoundNote(ctx, 659.25, now + 0.15, vol * 0.4, 0.5);
             playSoundNote(ctx, 783.99, now + 0.30, vol * 0.4, 0.5);
             playSoundNote(ctx, 1046.50, now + 0.45, vol * 0.4, 2.0);
             break;
-        default: // Fallback to bell
-            playSoundNote(ctx, 523.25, now, vol, 2.0);
-            break;
+        default: playSoundNote(ctx, 523.25, now, vol, 2.0); break;
       }
     }
-    // Usunięto obsługę wibracji zgodnie z życzeniem
   }, [audioCtx]);
+
+  const triggerBackgroundNotification = useCallback(() => {
+    if ("Notification" in window && Notification.permission === "granted") {
+        // Fix: Removed 'vibrate' property which is not part of standard NotificationOptions in the constructor
+        new Notification("KONIEC PRZERWY!", {
+            body: "Wracaj do treningu!",
+            icon: logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP',
+            silent: false
+        });
+    }
+  }, [logo]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && restEndTimeRef.current !== null) {
+            const now = Date.now();
+            if (now >= restEndTimeRef.current) {
+                stopRestTimer();
+                playAlarm();
+            }
+        }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [playAlarm]);
 
   const startRestTimer = (duration: number) => {
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    const endTime = Date.now() + (duration * 1000);
+    restEndTimeRef.current = endTime;
     setRestTimer({ timeLeft: duration, duration });
     restIntervalRef.current = window.setInterval(() => {
-      setRestTimer(prev => {
-        if (prev.timeLeft === null || prev.timeLeft <= 1) {
-          if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-          playAlarm();
-          return { timeLeft: null, duration: 0 };
+      const now = Date.now();
+      const timeLeft = Math.max(0, Math.round((endTime - now) / 1000));
+      if (timeLeft <= 0) {
+        stopRestTimer();
+        playAlarm();
+        if (document.visibilityState !== 'visible') {
+            triggerBackgroundNotification();
         }
-        return { ...prev, timeLeft: prev.timeLeft - 1 };
-      });
+      } else {
+        setRestTimer(prev => ({ ...prev, timeLeft }));
+      }
     }, 1000);
   };
 
   const stopRestTimer = () => {
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    restIntervalRef.current = null;
+    restEndTimeRef.current = null;
     setRestTimer({ timeLeft: null, duration: 0 });
   };
 
@@ -341,9 +338,7 @@ export default function App() {
         else if (result.error?.includes("Nie znaleziono") || result.error?.includes("Nieprawidłowy")) {
             setClientCode(null);
             localStorage.removeItem('bear_gym_client_code');
-        } else {
-            setSyncError(result.error);
-        }
+        } else { setSyncError(result.error); }
       }
     } catch (e) {
       const localWorkouts = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
@@ -409,16 +404,9 @@ export default function App() {
       clientCode, clientName, workouts, settings, updateSettings, updateWorkouts, logo, updateLogo, playAlarm, syncData,
       workoutStartTime, setWorkoutStartTime, restTimer, startRestTimer, stopRestTimer
     }}>
-      {/* InstallPrompt tutaj, aby był widoczny globalnie, nawet nad AuthView */}
       <InstallPrompt />
-      
       <HashRouter>
-        <ClientRouteGuard 
-          clientCode={clientCode} 
-          syncError={syncError} 
-          isReady={isReady} 
-          handleLogin={handleLogin}
-        >
+        <ClientRouteGuard clientCode={clientCode} syncError={syncError} isReady={isReady} handleLogin={handleLogin}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/workout/:id" element={<ActiveWorkout />} />

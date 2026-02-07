@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { remoteStorage, parseDateStr, storage } from '../services/storage';
 import { Exercise, WarmupExercise, ExerciseType } from '../types';
 import { ActivityWidget } from './Dashboard';
@@ -14,6 +14,7 @@ export default function CoachDashboard() {
   
   const [coaches, setCoaches] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
+  const [allClientsPool, setAllClientsPool] = useState<any[]>([]); // Pełna lista dla wyszukiwania
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,11 +46,16 @@ export default function CoachDashboard() {
 
   const refreshData = async (role: 'super-admin' | 'coach', code: string) => {
     if (role === 'super-admin') {
-      const list = await remoteStorage.fetchAllCoaches();
-      setCoaches(list);
+      const coachList = await remoteStorage.fetchAllCoaches();
+      setCoaches(coachList);
+      // Dla super-admina pobierz wszystkich klientów do poola
+      const clientList = await remoteStorage.fetchClients();
+      setAllClientsPool(clientList);
+      setClients(clientList);
     } else {
       const list = await remoteStorage.fetchClients(code);
       setClients(list);
+      setAllClientsPool(list);
     }
   };
 
@@ -97,8 +103,10 @@ export default function CoachDashboard() {
     setLoading(false);
   };
 
+  // Globalna wyszukiwarka przeszukuje allClientsPool niezależnie od zaznaczonego trenera
   const filteredClients = useMemo(() => {
-    return clients.filter(c => 
+    const listToFilter = searchQuery ? allClientsPool : clients;
+    return listToFilter.filter(c => 
       c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
       c.code.toLowerCase().includes(searchQuery.toLowerCase())
     ).sort((a, b) => {
@@ -106,7 +114,7 @@ export default function CoachDashboard() {
       if (a.status === 'inactive' && b.status === 'active') return 1;
       return a.name.localeCompare(b.name);
     });
-  }, [clients, searchQuery]);
+  }, [clients, allClientsPool, searchQuery]);
 
   const flatHistory = useMemo(() => {
     if (!selectedClient?.history) return [];
@@ -172,6 +180,7 @@ export default function CoachDashboard() {
     const success = await remoteStorage.deleteClient(itemToDelete.code);
     if (success) {
       setClients(prev => prev.filter(c => c.code !== itemToDelete.code));
+      setAllClientsPool(prev => prev.filter(c => c.code !== itemToDelete.code));
       if (selectedClient?.code === itemToDelete.code) setSelectedClient(null);
       setModalType(null);
     } else alert("Błąd usuwania");
@@ -201,6 +210,7 @@ export default function CoachDashboard() {
     if (success) {
       setSelectedClient({ ...selectedClient, status: newStatus });
       setClients(prev => prev.map(c => c.code === selectedClient.code ? { ...c, status: newStatus } : c));
+      setAllClientsPool(prev => prev.map(c => c.code === selectedClient.code ? { ...c, status: newStatus } : c));
     }
     setLoading(false);
   };
@@ -228,6 +238,19 @@ export default function CoachDashboard() {
     if(!title) return;
     const id = `w_${Date.now()}`;
     setEditedPlan({ ...editedPlan, [id]: { title, exercises: [], warmup: [] } });
+  };
+
+  const moveWorkoutDay = (workoutId: string, direction: 'up' | 'down') => {
+    const entries = Object.entries(editedPlan);
+    const index = entries.findIndex(([id]) => id === workoutId);
+    if (index === -1) return;
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= entries.length) return;
+    const newEntries = [...entries];
+    [newEntries[index], newEntries[newIndex]] = [newEntries[newIndex], newEntries[index]];
+    const newObj: any = {};
+    newEntries.forEach(([id, val]) => { newObj[id] = val; });
+    setEditedPlan(newObj);
   };
 
   const addExercise = (wId: string) => {
@@ -262,8 +285,6 @@ export default function CoachDashboard() {
     if (!excelData.trim()) return;
     const rows = excelData.trim().split('\n');
     const headers = rows[0].split('\t').map(h => h.trim().toLowerCase());
-    
-    // Znajdź indeksy kolumn
     const idx = {
         plan: headers.indexOf('plan'),
         sekcja: headers.indexOf('sekcja'),
@@ -276,23 +297,18 @@ export default function CoachDashboard() {
         przerwa: headers.indexOf('przerwa (s)'),
         link: headers.indexOf('link yt')
     };
-
     const newPlan: any = {};
-    const workoutMap: Record<string, string> = {}; // Tytuł -> ID
-
+    const workoutMap: Record<string, string> = {};
     rows.slice(1).forEach((row, i) => {
         const cols = row.split('\t');
         const planTitle = cols[idx.plan]?.trim() || "Trening";
-        
         if (!workoutMap[planTitle]) {
             const wId = `w_${Date.now()}_${i}`;
             workoutMap[planTitle] = wId;
             newPlan[wId] = { title: planTitle, exercises: [], warmup: [] };
         }
-
         const wId = workoutMap[planTitle];
         const isWarmup = cols[idx.sekcja]?.toLowerCase().includes('rozgrzewka') || cols[idx.sekcja]?.toLowerCase().includes('warmup');
-
         if (isWarmup) {
             newPlan[wId].warmup.push({
                 name: cols[idx.nazwa] || "Rozgrzewka",
@@ -315,7 +331,6 @@ export default function CoachDashboard() {
             });
         }
     });
-
     setEditedPlan(newPlan);
     setModalType(null);
     setExcelData('');
@@ -389,7 +404,7 @@ export default function CoachDashboard() {
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px] group-focus-within:text-red-500 transition-colors"></i>
             <input 
               type="text" 
-              placeholder="Szukaj podopiecznego..." 
+              placeholder="Globalne szukanie podopiecznego..." 
               value={searchQuery} 
               onChange={e => setSearchQuery(e.target.value)} 
               className="w-full bg-black border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" 
@@ -488,7 +503,9 @@ export default function CoachDashboard() {
 
             {activeTab === 'calendar' && (
               <div className="space-y-10 animate-fade-in">
-                <ActivityWidget workouts={selectedClient.plan || {}} logo={selectedClient.logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'} />
+                <div className="w-full">
+                    <ActivityWidget workouts={selectedClient.plan || {}} logo={selectedClient.logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'} />
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {flatHistory.map((h: any, i: number) => (
                         <div key={i} className="bg-[#161616] p-6 rounded-2xl border border-gray-800 shadow-xl border-l-4 border-blue-600">
@@ -518,14 +535,24 @@ export default function CoachDashboard() {
                    <button onClick={() => setModalType('excel-import')} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black uppercase italic text-[10px] shadow-xl transition active:scale-95"><i className="fas fa-file-excel mr-2"></i> IMPORT Z EXCELA</button>
                    {!isEditingPlan ? (<button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>) : (<><button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button><button onClick={() => setIsEditingPlan(false)} className="bg-gray-800 text-gray-500 px-8 py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button></>)}
                 </div>
-                {Object.entries(editedPlan || {}).map(([wId, workout]: any) => (
+                {Object.entries(editedPlan || {}).map(([wId, workout]: any, wIdx) => (
                   <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-8 shadow-2xl space-y-8 animate-fade-in">
                     <div className="flex justify-between items-center border-b border-gray-800 pb-6">
-                        <div className="flex items-center space-x-4"><div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg"><i className="fas fa-calendar-alt"></i></div><h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{workout.title}</h3></div>
+                        <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg"><i className="fas fa-calendar-alt"></i></div>
+                            <div className="flex items-center space-x-4">
+                                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{workout.title}</h3>
+                                {isEditingPlan && (
+                                    <div className="flex space-x-2">
+                                        <button onClick={() => moveWorkoutDay(wId, 'up')} className="text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg"><i className="fas fa-arrow-up text-xs"></i></button>
+                                        <button onClick={() => moveWorkoutDay(wId, 'down')} className="text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg"><i className="fas fa-arrow-down text-xs"></i></button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                         {isEditingPlan && <button onClick={() => { delete editedPlan[wId]; setEditedPlan({...editedPlan}); }} className="text-red-900 hover:text-red-500 transition p-3 bg-red-900/10 rounded-xl"><i className="fas fa-trash"></i></button>}
                     </div>
 
-                    {/* SEKCJA ROZGRZEWKI */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-center"><h4 className="text-sm font-black text-yellow-500 uppercase italic tracking-widest">Rozgrzewka / Aktywacja</h4></div>
                         <div className="grid grid-cols-1 gap-2">
@@ -543,7 +570,6 @@ export default function CoachDashboard() {
                         </div>
                     </div>
 
-                    {/* SEKCJA ĆWICZEŃ GŁÓWNYCH */}
                     <div className="space-y-4">
                         <h4 className="text-sm font-black text-blue-500 uppercase italic tracking-widest">Ćwiczenia Główne</h4>
                         <div className="space-y-2 overflow-x-auto">
@@ -596,16 +622,12 @@ export default function CoachDashboard() {
             {searchQuery ? (
               <div className="w-full max-w-4xl">
                  <div className="mb-10 text-center">
-                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Wyniki Wyszukiwania</h2>
-                    <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mt-2">Znaleziono: {filteredClients.length}</p>
+                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Wyniki Wyszukiwania Globalnego</h2>
+                    <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mt-2">Znaleziono w całej bazie: {filteredClients.length}</p>
                  </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredClients.map(c => (
-                        <button 
-                            key={c.code} 
-                            onClick={() => loadClientDetail(c.code)}
-                            className="bg-[#161616] p-8 rounded-3xl border border-gray-800 hover:border-red-600 transition shadow-2xl text-left group"
-                        >
+                        <button key={c.code} onClick={() => loadClientDetail(c.code)} className="bg-[#161616] p-8 rounded-3xl border border-gray-800 hover:border-red-600 transition shadow-2xl text-left group">
                             <div className="flex justify-between items-start mb-6">
                                 <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center text-xl font-black text-white italic group-hover:bg-red-600 transition-colors">{c.name.charAt(0)}</div>
                                 <span className={`text-[8px] font-black uppercase px-2 py-1 rounded ${c.status === 'active' ? 'bg-green-900/30 text-green-500' : 'bg-red-900/30 text-red-500'}`}>{c.status}</span>
@@ -639,25 +661,15 @@ export default function CoachDashboard() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-6 animate-fade-in">
           <div className="bg-[#161616] border border-gray-800 rounded-3xl p-10 max-w-sm w-full shadow-2xl relative overflow-hidden">
             <div className={`absolute top-0 left-0 w-full h-1 ${modalType.includes('delete') ? 'bg-red-600' : 'bg-blue-600'}`}></div>
-            
             {modalType === 'add-coach' || modalType === 'add-client' ? (
               <><h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3><div className="space-y-5"><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" /><input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" /><button onClick={async () => { setLoading(true); if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh(); setLoading(false); }} className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95">UTWÓRZ</button></div></>
             ) : modalType === 'excel-import' ? (
               <div className="max-w-xl w-full">
                 <h3 className="text-2xl font-black text-white italic uppercase mb-2 tracking-tight">Import z Excela</h3>
-                <p className="text-[10px] text-gray-500 mb-6 uppercase">Zaznacz dane w Excelu (z nagłówkami) i wklej je poniżej.</p>
+                <p className="text-[10px] text-gray-500 mb-6 uppercase">Zaznacz dane w Excelu i wklej poniżej.</p>
                 <div className="space-y-4">
-                    <textarea 
-                        value={excelData} 
-                        onChange={e => setExcelData(e.target.value)}
-                        placeholder="Wklej tutaj dane (tab-separated)..."
-                        className="w-full h-64 bg-black border border-gray-800 p-4 rounded-xl text-[10px] text-gray-400 font-mono outline-none focus:border-purple-600 transition"
-                    />
-                    <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-800 text-[8px] text-gray-600 space-y-1">
-                        <p className="font-bold text-gray-500">WYMAGANE NAGŁÓWKI (KOLEJNOŚĆ DOWOLNA):</p>
-                        <p>Plan | Sekcja | Nazwa Ćwiczenia | Opis PL | Serie | Powt. | Tempo | RIR | Przerwa (s) | Link YT</p>
-                    </div>
-                    <button onClick={handleExcelImport} className="w-full bg-purple-600 hover:bg-purple-700 py-4 rounded-xl font-black uppercase italic text-white shadow-2xl transition active:scale-95">PRZETWÓRZ I ZAIMPORTUJ</button>
+                    <textarea value={excelData} onChange={e => setExcelData(e.target.value)} placeholder="Wklej tutaj dane..." className="w-full h-64 bg-black border border-gray-800 p-4 rounded-xl text-[10px] text-gray-400 font-mono outline-none focus:border-purple-600 transition" />
+                    <button onClick={handleExcelImport} className="w-full bg-purple-600 hover:bg-purple-700 py-4 rounded-xl font-black uppercase italic text-white shadow-2xl transition active:scale-95">ZAIMPORTUJ</button>
                 </div>
               </div>
             ) : (
