@@ -24,7 +24,8 @@ export default function CoachDashboard() {
   const [activeTab, setActiveTab] = useState<CoachTab>('plan');
   
   const [isEditingPlan, setIsEditingPlan] = useState(false);
-  const [editedPlan, setEditedPlan] = useState<any>(null);
+  // Fix: Initialize editedPlan as an empty object instead of null to allow spreading
+  const [editedPlan, setEditedPlan] = useState<any>({});
   const [selectedChartWorkoutId, setSelectedChartWorkoutId] = useState<string>("");
 
   const [activeTraining, setActiveTraining] = useState<{workoutId: string, results: { [exId: string]: { kg: string, reps: string }[] }} | null>(null);
@@ -133,18 +134,24 @@ export default function CoachDashboard() {
 
   const flatHistory = useMemo(() => {
     if (!selectedClient?.history) return [];
-    if (Array.isArray(selectedClient.history)) return selectedClient.history;
     const all: any[] = [];
-    Object.values(selectedClient.history).forEach((h: any) => {
-        if (Array.isArray(h)) all.push(...h);
+    
+    // Historia jest przechowywana jako { workoutId: [entries] }
+    Object.entries(selectedClient.history).forEach(([wId, historyArray]: [string, any]) => {
+        if (Array.isArray(historyArray)) {
+            historyArray.forEach(h => {
+                all.push({ ...h, workoutId: wId }); // Wstrzykujemy workoutId
+            });
+        }
     });
+    
     return all.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   }, [selectedClient]);
 
   const getExerciseChartData = (workoutId: string, exerciseId: string) => {
     if (!flatHistory) return [];
     return flatHistory.slice()
-      .filter(h => h.workoutId === workoutId)
+      .filter(h => h.workoutId === workoutId) // Teraz filtrowanie działa poprawnie
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
       .map(entry => {
         const resultStr = entry.results[exerciseId];
@@ -165,19 +172,6 @@ export default function CoachDashboard() {
       })
       .filter(Boolean);
   };
-
-  useEffect(() => {
-    if (selectedClient && activeTab === 'calendar') {
-        if (selectedClient.history) {
-            Object.entries(selectedClient.history).forEach(([id, h]) => {
-                storage.saveHistory(id, h as any[]);
-            });
-        }
-        if (selectedClient.extras) {
-            storage.saveCardioSessions(selectedClient.extras.cardio || []);
-        }
-    }
-  }, [selectedClient, activeTab]);
 
   const confirmDeleteClient = (client: any) => {
     setItemToDelete(client);
@@ -253,7 +247,8 @@ export default function CoachDashboard() {
     if(!title) return;
     const id = `w_${Date.now()}`;
     const maxOrder = sortedPlanEntries.length > 0 ? Math.max(...sortedPlanEntries.map(e => (e[1] as any).displayOrder || 0)) : 0;
-    setEditedPlan({ ...editedPlan, [id]: { title, exercises: [], warmup: [], displayOrder: maxOrder + 10 } });
+    // Fix: Guard spreading of editedPlan to ensure it's an object
+    setEditedPlan({ ...(editedPlan || {}), [id]: { title, exercises: [], warmup: [], displayOrder: maxOrder + 10 } });
   };
 
   const moveWorkoutDay = (workoutId: string, direction: 'up' | 'down') => {
@@ -269,14 +264,16 @@ export default function CoachDashboard() {
     // Przebudowanie obiektu z nowymi displayOrder
     const updatedPlan: any = {};
     entries.forEach(([id, val], i) => {
-        updatedPlan[id] = { ...val, displayOrder: i * 10 };
+        // Fix: Ensure val is an object before spreading
+        updatedPlan[id] = { ...(val || {}), displayOrder: i * 10 };
     });
     setEditedPlan(updatedPlan);
   };
 
   const addExercise = (wId: string) => {
     const newEx: Exercise = { id: `ex_${Date.now()}`, name: "Nowe ćwiczenie", pl: "", sets: 4, reps: "8-12", tempo: "2011", rir: "2", rest: 90, link: "", type: "standard" };
-    const updated = { ...editedPlan };
+    // Fix: Guard spreading of editedPlan
+    const updated = { ...(editedPlan || {}) };
     if (!updated[wId].exercises) updated[wId].exercises = [];
     updated[wId].exercises.push(newEx);
     setEditedPlan(updated);
@@ -284,20 +281,23 @@ export default function CoachDashboard() {
 
   const addWarmup = (wId: string) => {
     const newW: WarmupExercise = { name: "Nowe cardio/mobilizacja", pl: "", link: "", reps: "10 min" };
-    const updated = { ...editedPlan };
+    // Fix: Guard spreading of editedPlan
+    const updated = { ...(editedPlan || {}) };
     if (!updated[wId].warmup) updated[wId].warmup = [];
     updated[wId].warmup.push(newW);
     setEditedPlan(updated);
   };
 
   const updateExField = (wId: string, exIdx: number, field: keyof Exercise, val: any) => {
-    const updated = { ...editedPlan };
+    // Fix: Guard spreading of editedPlan
+    const updated = { ...(editedPlan || {}) };
     updated[wId].exercises[exIdx] = { ...updated[wId].exercises[exIdx], [field]: val };
     setEditedPlan(updated);
   };
 
   const updateWarmupField = (wId: string, wIdx: number, field: keyof WarmupExercise, val: any) => {
-    const updated = { ...editedPlan };
+    // Fix: Guard spreading of editedPlan
+    const updated = { ...(editedPlan || {}) };
     updated[wId].warmup[wIdx] = { ...updated[wId].warmup[wIdx], [field]: val };
     setEditedPlan(updated);
   };
@@ -360,11 +360,13 @@ export default function CoachDashboard() {
 
   const updateLiveResult = (exId: string, sIdx: number, field: 'kg' | 'reps', val: string) => {
     if (!activeTraining) return;
-    const updatedResults = { ...activeTraining.results };
+    // Fix: Ensure results is an object before spreading
+    const updatedResults = { ...(activeTraining.results || {}) };
     if (!updatedResults[exId]) updatedResults[exId] = [];
     if (!updatedResults[exId][sIdx]) updatedResults[exId][sIdx] = { kg: '', reps: '' };
     updatedResults[exId][sIdx] = { ...updatedResults[exId][sIdx], [field]: val };
-    setActiveTraining({ ...activeTraining, results: updatedResults });
+    // Fix: Ensure activeTraining is spread as an object
+    setActiveTraining({ ...(activeTraining || {}), results: updatedResults });
   };
 
   const startLiveTraining = (workoutId: string) => {
@@ -384,8 +386,17 @@ export default function CoachDashboard() {
         if (formattedSets.length > 0) sessionResults[exId] = formattedSets.join(' | ');
     });
     const newEntry = { date: dateStr, timestamp: d.getTime(), results: sessionResults, workoutId: activeTraining.workoutId };
-    const updatedHistory = [newEntry, ...(flatHistory || [])];
-    const success = await remoteStorage.saveToCloud(selectedClient.code, 'history', updatedHistory);
+    
+    // Dodajemy do specyficznego klucza workoutId
+    const currentHistory = selectedClient.history?.[activeTraining.workoutId] || [];
+    const updatedHistory = [newEntry, ...currentHistory];
+    
+    // Fix: Guard spreading of selectedClient.history
+    const success = await remoteStorage.saveToCloud(selectedClient.code, 'history', { 
+        ...(selectedClient.history || {}), 
+        [activeTraining.workoutId]: updatedHistory 
+    });
+    
     if (success) {
         alert("Zapisano!");
         await loadClientDetail(selectedClient.code);
@@ -394,20 +405,17 @@ export default function CoachDashboard() {
     setLoading(false);
   };
 
-  // Funkcja generująca kod klienta na podstawie imienia i nazwiska
   const handleNameInput = (val: string) => {
     const parts = val.trim().split(/\s+/);
     let suggestedCode = form.code;
-    
-    // Sugeruj kod tylko jeśli pole kodu jest puste
     if (parts.length >= 2 && (!form.code || form.code === "")) {
       const first = parts[0].substring(0, 3).toUpperCase();
       const last = parts[parts.length - 1].substring(0, 3).toUpperCase();
       const random = Math.floor(100 + Math.random() * 900);
       suggestedCode = `${first}${last}${random}`;
     }
-    
-    setForm({ ...form, name: val, code: suggestedCode });
+    // Fix: Guard spreading of form
+    setForm({ ...(form || {}), name: val, code: suggestedCode });
   };
 
   if (!userRole) {
@@ -439,23 +447,9 @@ export default function CoachDashboard() {
         <div className="p-4">
           <div className="relative group mb-4">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px] group-focus-within:text-red-500 transition-colors"></i>
-            <input 
-              type="text" 
-              placeholder="Globalne szukanie podopiecznego..." 
-              value={searchQuery} 
-              onChange={e => setSearchQuery(e.target.value)} 
-              className="w-full bg-black border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" 
-            />
+            <input type="text" placeholder="Globalne szukanie podopiecznego..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-black border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" />
           </div>
-          
-          {userRole === 'super-admin' && (
-              <button 
-                onClick={handleShowAllClients}
-                className="w-full bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-500 hover:text-white py-3 rounded-xl transition font-black text-[9px] uppercase italic mb-6 shadow-lg"
-              >
-                  <i className="fas fa-users mr-2"></i> Pokaż wszystkich podopiecznych
-              </button>
-          )}
+          {userRole === 'super-admin' && <button onClick={handleShowAllClients} className="w-full bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-500 hover:text-white py-3 rounded-xl transition font-black text-[9px] uppercase italic mb-6 shadow-lg"><i className="fas fa-users mr-2"></i> Pokaż wszystkich</button>}
         </div>
         <div className="flex-grow overflow-y-auto p-4 space-y-6">
           {userRole === 'super-admin' && (
@@ -500,18 +494,134 @@ export default function CoachDashboard() {
                 <TabBtn active={activeTab === 'history'} onClick={() => setActiveTab('history')} label="HISTORIA" icon="fa-history" />
                 <TabBtn active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} label="KALENDARZ" icon="fa-calendar-alt" />
                 <TabBtn active={activeTab === 'progress'} onClick={() => setActiveTab('progress')} label="PROGRES" icon="fa-chart-line" color="text-blue-400" />
-                <TabBtn active={activeTab === 'cardio'} onClick={() => setActiveTab('cardio')} label="CARDIO" icon="fa-running" />
+                <TabBtn active={activeTab === 'cardio'} onClick={() => setActiveTab('cardio')} label="INNA AKTYWNOŚĆ" icon="fa-running" />
                 <TabBtn active={activeTab === 'measurements'} onClick={() => setActiveTab('measurements')} label="POMIARY" icon="fa-ruler" />
                 <TabBtn active={activeTab === 'info'} onClick={() => setActiveTab('info')} label="INFO" icon="fa-info-circle" color="text-blue-400" />
-                <div className="w-px bg-gray-800 mx-1"></div>
                 <TabBtn active={activeTab === 'training'} onClick={() => setActiveTab('training')} label="PROWADŹ" icon="fa-tablet-alt" color="text-yellow-500" />
               </nav>
             </header>
 
+            {activeTab === 'plan' && (
+              <div className="space-y-10">
+                <div className="flex justify-end space-x-3 sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur py-4">
+                   <button onClick={() => setModalType('excel-import')} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black uppercase italic text-[10px] shadow-xl transition active:scale-95"><i className="fas fa-file-excel mr-2"></i> IMPORT Z EXCELA</button>
+                   {!isEditingPlan ? (<button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>) : (<><button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button><button onClick={() => setIsEditingPlan(false)} className="bg-gray-800 text-gray-500 px-8 py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button></>)}
+                </div>
+                {sortedPlanEntries.map(([wId, workout]: any, wIdx) => (
+                  <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-8 shadow-2xl space-y-8 animate-fade-in">
+                    <div className="flex justify-between items-center border-b border-gray-800 pb-6">
+                        <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg"><i className="fas fa-calendar-alt"></i></div>
+                            <div className="flex items-center space-x-4">
+                                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{workout.title}</h3>
+                                {isEditingPlan && (
+                                    <div className="flex space-x-2">
+                                        <button onClick={() => moveWorkoutDay(wId, 'up')} className={`text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg ${wIdx === 0 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-up text-xs"></i></button>
+                                        <button onClick={() => moveWorkoutDay(wId, 'down')} className={`text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg ${wIdx === sortedPlanEntries.length - 1 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-down text-xs"></i></button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                        {workout.exercises?.map((ex: any, idx: number) => (
+                            <div key={idx} className="bg-black/40 p-4 rounded-xl border border-gray-800">
+                                <div className="font-black text-white text-xs italic uppercase">{idx+1}. {ex.name}</div>
+                                <div className="text-[10px] text-gray-500 mt-1">{ex.sets}s | {ex.reps}p | {ex.tempo} | RIR {ex.rir}</div>
+                            </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'history' && (
+              <div className="space-y-6 animate-fade-in">
+                <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Ostatnie Treningi Siłowe</h3>
+                <div className="grid grid-cols-1 gap-4">
+                    {flatHistory.map((h: any, i: number) => (
+                        <div key={i} className="bg-[#161616] p-6 rounded-2xl border border-gray-800 hover:bg-gray-800/50 transition border-l-4 border-red-600">
+                            <div className="flex justify-between items-center mb-4">
+                                <div>
+                                    <div className="text-red-500 font-black text-xs uppercase italic">{h.date}</div>
+                                    <div className="text-white font-black text-xl uppercase italic tracking-tight">{selectedClient.plan?.[h.workoutId]?.title || 'Trening'}</div>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-xs">
+                                {Object.entries(h.results).map(([exId, res]: any) => (
+                                    <div key={exId} className="flex justify-between border-b border-gray-800 pb-1">
+                                        <span className="text-gray-500 truncate pr-4">{selectedClient.plan?.[h.workoutId]?.exercises.find((e:any)=>e.id===exId)?.name || 'Ćwiczenie'}</span>
+                                        <span className="text-white font-mono">{res}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                    {flatHistory.length === 0 && <div className="text-center py-20 opacity-20">Brak historii treningów</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'cardio' && (
+              <div className="space-y-6 animate-fade-in">
+                <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Inna Aktywność (Cardio / Mobility / Fight)</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(selectedClient.extras?.cardio || []).sort((a:any, b:any) => b.date.localeCompare(a.date)).map((c: any) => (
+                        <div key={c.id} className={`bg-[#161616] p-6 rounded-2xl border border-gray-800 border-l-4 ${c.type === 'mobility' ? 'border-purple-600' : c.type === 'fight' ? 'border-sky-500' : 'border-green-600'}`}>
+                            <div className="flex items-center space-x-4">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-lg ${c.type === 'mobility' ? 'bg-purple-900/20 text-purple-500' : c.type === 'fight' ? 'bg-sky-900/20 text-sky-500' : 'bg-green-900/20 text-green-500'}`}>
+                                    <i className={`fas ${c.type === 'mobility' ? 'fa-universal-access' : c.type === 'fight' ? 'fa-hand-fist' : 'fa-running'}`}></i>
+                                </div>
+                                <div>
+                                    <div className="text-white font-black uppercase italic">{c.type.toUpperCase()}</div>
+                                    <div className="text-[10px] text-gray-500 font-bold uppercase">{c.date} • {c.duration}</div>
+                                </div>
+                            </div>
+                            {c.notes && <div className="mt-4 p-3 bg-black/40 rounded-xl text-[10px] text-gray-400 italic">"{c.notes}"</div>}
+                        </div>
+                    ))}
+                    {(selectedClient.extras?.cardio || []).length === 0 && <div className="col-span-full text-center py-20 opacity-20">Brak dodatkowych aktywności</div>}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'calendar' && (
+              <div className="animate-fade-in">
+                <ActivityWidget 
+                    workouts={selectedClient.plan || {}} 
+                    logo={selectedClient.logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'}
+                    externalHistory={selectedClient.history}
+                    externalCardio={selectedClient.extras?.cardio}
+                />
+              </div>
+            )}
+
+            {activeTab === 'measurements' && (
+              <div className="space-y-10 animate-fade-in">
+                <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Pomiary Ciała</h3>
+                <div className="grid grid-cols-1 gap-6">
+                    {(selectedClient.extras?.measurements || []).slice().reverse().map((m: any) => (
+                        <div key={m.id} className="bg-[#161616] p-6 rounded-2xl border border-gray-800 shadow-xl grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="col-span-full md:col-span-1 border-b md:border-b-0 md:border-r border-gray-800 pb-2 md:pb-0">
+                                <div className="text-gray-600 text-[10px] font-black uppercase mb-1">DATA</div>
+                                <div className="text-white font-black italic">{m.date}</div>
+                            </div>
+                            <div><div className="text-gray-600 text-[10px] font-black uppercase mb-1">WAGA</div><div className="text-green-500 font-black italic">{m.weight || '-'} kg</div></div>
+                            <div><div className="text-gray-600 text-[10px] font-black uppercase mb-1">PAS</div><div className="text-blue-500 font-black italic">{m.waist || '-'} cm</div></div>
+                            <div><div className="text-gray-600 text-[10px] font-black uppercase mb-1">KLATKA</div><div className="text-white font-black italic">{m.chest || '-'} cm</div></div>
+                            <div><div className="text-gray-600 text-[10px] font-black uppercase mb-1">BICEPS</div><div className="text-red-500 font-black italic">{m.biceps || '-'} cm</div></div>
+                        </div>
+                    ))}
+                    {(selectedClient.extras?.measurements || []).length === 0 && <div className="text-center py-20 opacity-20">Brak pomiarów</div>}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'progress' && (
               <div className="space-y-10 animate-fade-in">
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Wykresy Postępów</h3>
+                    <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Analiza Postępów</h3>
                     <select value={selectedChartWorkoutId} onChange={e => setSelectedChartWorkoutId(e.target.value)} className="bg-black border border-gray-800 text-white p-3 rounded-xl text-xs font-black uppercase italic">
                         {sortedPlanEntries.map(([id, w]: any) => (<option key={id} value={id}>{w.title}</option>))}
                     </select>
@@ -547,113 +657,12 @@ export default function CoachDashboard() {
               </div>
             )}
 
-            {activeTab === 'calendar' && (
-              <div className="space-y-10 animate-fade-in">
-                <div className="w-full">
-                    <ActivityWidget workouts={selectedClient.plan || {}} logo={selectedClient.logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {flatHistory.map((h: any, i: number) => (
-                        <div key={i} className="bg-[#161616] p-6 rounded-2xl border border-gray-800 shadow-xl border-l-4 border-blue-600">
-                            <div className="text-blue-500 font-black text-xs uppercase mb-3 italic">{h.date}</div>
-                            <div className="text-white font-black text-lg uppercase italic mb-4 truncate">{selectedClient.plan?.[h.workoutId]?.title || 'Trening'}</div>
-                            <div className="space-y-1 opacity-60">
-                                {Object.keys(h.results).slice(0, 3).map(exId => (<div key={exId} className="text-[10px] truncate">• {selectedClient.plan?.[h.workoutId]?.exercises.find((e:any)=>e.id===exId)?.name || 'Ćwiczenie'}</div>))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
             {activeTab === 'info' && (
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-[#161616] p-8 rounded-3xl border border-blue-500/20 shadow-2xl">
                   <h3 className="text-xl font-black text-white italic uppercase mb-6 flex items-center"><i className="fas fa-user-tag text-blue-500 mr-3"></i>Prywatne Notatki</h3>
                   <textarea value={selectedClient.coachNotes || ''} onChange={e => saveInfo(e.target.value)} placeholder="..." className="w-full h-96 bg-black border border-gray-800 rounded-2xl p-6 text-sm text-gray-300 outline-none focus:border-blue-500 transition leading-relaxed" />
                 </div>
-              </div>
-            )}
-
-            {activeTab === 'plan' && (
-              <div className="space-y-10">
-                <div className="flex justify-end space-x-3 sticky top-0 z-10 bg-[#0a0a0a]/90 backdrop-blur py-4">
-                   <button onClick={() => setModalType('excel-import')} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black uppercase italic text-[10px] shadow-xl transition active:scale-95"><i className="fas fa-file-excel mr-2"></i> IMPORT Z EXCELA</button>
-                   {!isEditingPlan ? (<button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>) : (<><button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button><button onClick={() => setIsEditingPlan(false)} className="bg-gray-800 text-gray-500 px-8 py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button></>)}
-                </div>
-                {sortedPlanEntries.map(([wId, workout]: any, wIdx) => (
-                  <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-8 shadow-2xl space-y-8 animate-fade-in">
-                    <div className="flex justify-between items-center border-b border-gray-800 pb-6">
-                        <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center text-white text-xl shadow-lg"><i className="fas fa-calendar-alt"></i></div>
-                            <div className="flex items-center space-x-4">
-                                <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{workout.title}</h3>
-                                {isEditingPlan && (
-                                    <div className="flex space-x-2">
-                                        <button onClick={() => moveWorkoutDay(wId, 'up')} className={`text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg ${wIdx === 0 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-up text-xs"></i></button>
-                                        <button onClick={() => moveWorkoutDay(wId, 'down')} className={`text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg ${wIdx === sortedPlanEntries.length - 1 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-down text-xs"></i></button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                        {isEditingPlan && <button onClick={() => { delete editedPlan[wId]; setEditedPlan({...editedPlan}); }} className="text-red-900 hover:text-red-500 transition p-3 bg-red-900/10 rounded-xl"><i className="fas fa-trash"></i></button>}
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center"><h4 className="text-sm font-black text-yellow-500 uppercase italic tracking-widest">Rozgrzewka / Aktywacja</h4></div>
-                        <div className="grid grid-cols-1 gap-2">
-                            {workout.warmup?.map((w: any, idx: number) => (
-                                <div key={idx} className="bg-black/20 p-4 rounded-xl border border-gray-800 flex items-center space-x-4">
-                                    <div className="flex-grow grid grid-cols-3 gap-4">
-                                        <input disabled={!isEditingPlan} value={w.pl} onChange={e => updateWarmupField(wId, idx, 'pl', e.target.value)} placeholder="Nazwa ćwiczenia" className="bg-black border border-gray-800 text-white p-2 rounded text-[10px] font-bold uppercase" />
-                                        <input disabled={!isEditingPlan} value={w.reps} onChange={e => updateWarmupField(wId, idx, 'reps', e.target.value)} placeholder="Objętość" className="bg-black border border-gray-800 text-yellow-500 p-2 rounded text-center text-[10px] font-bold" />
-                                        <input disabled={!isEditingPlan} value={w.link} onChange={e => updateWarmupField(wId, idx, 'link', e.target.value)} placeholder="Link YT" className="bg-black border border-gray-800 text-blue-500 p-2 rounded text-[10px] font-bold" />
-                                    </div>
-                                    {isEditingPlan && <button onClick={() => { workout.warmup.splice(idx,1); setEditedPlan({...editedPlan}); }} className="text-red-900 hover:text-red-500"><i className="fas fa-times-circle"></i></button>}
-                                </div>
-                            ))}
-                            {isEditingPlan && <button onClick={() => addWarmup(wId)} className="w-full py-3 bg-yellow-600/5 rounded-xl border border-dashed border-yellow-600/30 text-yellow-500 text-[9px] font-black uppercase italic">+ Dodaj Rozgrzewkę</button>}
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        <h4 className="text-sm font-black text-blue-500 uppercase italic tracking-widest">Ćwiczenia Główne</h4>
-                        <div className="space-y-2 overflow-x-auto">
-                            <div className="grid grid-cols-12 gap-2 px-4 mb-2 text-[10px] font-black text-gray-600 uppercase italic min-w-[800px]">
-                                <div className="col-span-1">#</div><div className="col-span-4">Ćwiczenie</div><div className="col-span-1 text-center">S</div><div className="col-span-1 text-center">Reps</div><div className="col-span-1 text-center">Tempo</div><div className="col-span-1 text-center">RIR</div><div className="col-span-1 text-center">Rest</div><div className="col-span-1 text-center">Typ</div><div className="col-span-1 text-right">Usuń</div>
-                            </div>
-                            {workout.exercises?.map((ex: any, idx: number) => (
-                            <div key={ex.id} className="grid grid-cols-12 gap-2 items-center bg-black/40 p-4 rounded-xl border border-gray-800 hover:border-gray-700 transition min-w-[800px]">
-                                <div className="col-span-1 font-black text-blue-600 italic text-sm">{idx + 1}</div>
-                                <div className="col-span-4">
-                                    {isEditingPlan ? (
-                                        <div className="space-y-1">
-                                            <input value={ex.name} onChange={e => updateExField(wId, idx, 'name', e.target.value)} placeholder="Nazwa" className="w-full bg-black border border-gray-800 text-white p-2 rounded text-xs font-black uppercase italic" />
-                                            <input value={ex.pl} onChange={e => updateExField(wId, idx, 'pl', e.target.value)} placeholder="Opis PL / Uwagi" className="w-full bg-black border border-gray-800 text-gray-400 p-2 rounded text-[10px] font-bold uppercase italic" />
-                                            <input value={ex.link} onChange={e => updateExField(wId, idx, 'link', e.target.value)} placeholder="Link YT" className="w-full bg-black border border-gray-800 text-blue-400 p-2 rounded text-[10px] font-bold" />
-                                        </div>
-                                    ) : (
-                                        <div className="overflow-hidden">
-                                            <div className="font-black text-white text-xs uppercase italic truncate">{ex.name}</div>
-                                            <div className="text-[10px] text-gray-500 truncate">{ex.pl}</div>
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="col-span-1"><input disabled={!isEditingPlan} type="number" value={ex.sets} onChange={e => updateExField(wId, idx, 'sets', parseInt(e.target.value))} className="w-full bg-black border border-gray-800 text-white p-2.5 rounded text-center text-xs font-black" /></div>
-                                <div className="col-span-1"><input disabled={!isEditingPlan} value={ex.reps} onChange={e => updateExField(wId, idx, 'reps', e.target.value)} className="w-full bg-black border border-gray-800 text-green-500 p-2.5 rounded text-center text-xs font-black" /></div>
-                                <div className="col-span-1"><input disabled={!isEditingPlan} value={ex.tempo} onChange={e => updateExField(wId, idx, 'tempo', e.target.value)} className="w-full bg-black border border-gray-800 text-blue-500 p-2.5 rounded text-center text-xs font-black" /></div>
-                                <div className="col-span-1"><input disabled={!isEditingPlan} value={ex.rir} onChange={e => updateExField(wId, idx, 'rir', e.target.value)} className="w-full bg-black border border-gray-800 text-red-500 p-2.5 rounded text-center text-xs font-black" /></div>
-                                <div className="col-span-1"><input disabled={!isEditingPlan} type="number" value={ex.rest} onChange={e => updateExField(wId, idx, 'rest', parseInt(e.target.value))} className="w-full bg-black border border-gray-800 text-white p-2.5 rounded text-center text-xs font-black" /></div>
-                                <div className="col-span-1"><select disabled={!isEditingPlan} value={ex.type} onChange={e => updateExField(wId, idx, 'type', e.target.value)} className="w-full bg-black border border-gray-800 text-gray-400 p-2 rounded text-[9px] font-black uppercase text-center outline-none"><option value="standard">STD</option><option value="reps_only">REPS</option><option value="time">TIME</option></select></div>
-                                <div className="col-span-1 flex justify-end">{isEditingPlan && <button onClick={() => { workout.exercises.splice(idx,1); setEditedPlan({...editedPlan}); }} className="text-red-900 hover:text-red-500 transition"><i className="fas fa-trash text-xs"></i></button>}</div>
-                            </div>
-                        ))}
-                        {isEditingPlan && <button onClick={() => addExercise(wId)} className="w-full py-4 bg-gray-800/20 rounded-2xl border border-dashed border-gray-700 text-gray-600 text-[10px] font-black uppercase hover:bg-gray-800/40 transition">+ Dodaj Ćwiczenie</button>}
-                        </div>
-                    </div>
-                  </div>
-                ))}
-                {isEditingPlan && <button onClick={addWorkoutDay} className="w-full py-8 bg-red-600/5 rounded-3xl border-2 border-dashed border-red-600/30 text-red-500 font-black uppercase italic hover:bg-red-600/10 transition">+ DODAJ NOWY DZIEŃ</button>}
               </div>
             )}
 
@@ -665,40 +674,10 @@ export default function CoachDashboard() {
           </div>
         ) : (
           <div className="h-full flex flex-col items-center justify-center py-20 animate-fade-in">
-            {searchQuery ? (
-              <div className="w-full max-w-4xl">
-                 <div className="mb-10 text-center">
-                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter">Wyniki Wyszukiwania Globalnego</h2>
-                    <p className="text-gray-600 text-[10px] font-bold uppercase tracking-widest mt-2">Znaleziono w całej bazie: {filteredClients.length}</p>
-                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredClients.map(c => (
-                        <button key={c.code} onClick={() => loadClientDetail(c.code)} className="bg-[#161616] p-8 rounded-3xl border border-gray-800 hover:border-red-600 transition shadow-2xl text-left group">
-                            <div className="flex justify-between items-start mb-6">
-                                <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center text-xl font-black text-white italic group-hover:bg-red-600 transition-colors">{c.name.charAt(0)}</div>
-                                <span className={`text-[8px] font-black uppercase px-2 py-1 rounded ${c.status === 'active' ? 'bg-green-900/30 text-green-500' : 'bg-red-900/30 text-red-500'}`}>{c.status}</span>
-                            </div>
-                            <h3 className="text-white font-black italic uppercase text-lg mb-1">{c.name}</h3>
-                            <p className="text-gray-600 text-[10px] font-mono mb-4">Kod: {c.code}</p>
-                            <div className="flex items-center text-blue-500 font-black text-[9px] uppercase italic">
-                                OTWÓRZ PROFIL <i className="fas fa-arrow-right ml-2 group-hover:translate-x-2 transition-transform"></i>
-                            </div>
-                        </button>
-                    ))}
-                    {filteredClients.length === 0 && (
-                        <div className="col-span-full text-center py-20 opacity-20">
-                            <i className="fas fa-user-slash text-6xl mb-4"></i>
-                            <p className="text-xl font-black uppercase italic">Nie znaleziono podopiecznego</p>
-                        </div>
-                    )}
-                 </div>
-              </div>
-            ) : (
               <div className="opacity-5 text-center">
                 <i className="fas fa-bear-tracking text-[200px] mb-8"></i>
                 <h2 className="text-6xl font-black italic uppercase tracking-tighter">BEAR GYM SYSTEM</h2>
               </div>
-            )}
           </div>
         )}
       </main>
@@ -711,32 +690,9 @@ export default function CoachDashboard() {
               <>
                 <h3 className="text-2xl font-black text-white italic uppercase mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3>
                 <div className="space-y-5">
-                  <input 
-                    value={form.name} 
-                    onChange={e => modalType === 'add-client' ? handleNameInput(e.target.value) : setForm({...form, name: e.target.value})} 
-                    placeholder="Imię i Nazwisko" 
-                    className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" 
-                  />
-                  <input 
-                    value={form.code} 
-                    onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} 
-                    placeholder="KOD / HASŁO" 
-                    className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" 
-                  />
-                  <button 
-                    onClick={async () => { 
-                      setLoading(true); 
-                      if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); 
-                      else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); 
-                      setModalType(null); 
-                      setForm({name:'', code:''}); 
-                      await handleGlobalRefresh(); 
-                      setLoading(false); 
-                    }} 
-                    className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95"
-                  >
-                    UTWÓRZ
-                  </button>
+                  <input value={form.name} onChange={e => modalType === 'add-client' ? handleNameInput(e.target.value) : setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-bold focus:border-red-600 transition" />
+                  <input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-black border border-gray-800 p-5 rounded-2xl outline-none text-white text-sm font-mono tracking-widest focus:border-red-600 transition" />
+                  <button onClick={async () => { setLoading(true); if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh(); setLoading(false); }} className="w-full bg-red-600 hover:bg-red-700 py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95">UTWÓRZ</button>
                 </div>
               </>
             ) : modalType === 'excel-import' ? (

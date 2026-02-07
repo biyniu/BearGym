@@ -91,7 +91,7 @@ export default function Dashboard() {
   );
 }
 
-export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string }) {
+export function ActivityWidget({ workouts, logo, externalHistory, externalCardio }: { workouts: any, logo: string, externalHistory?: any, externalCardio?: any }) {
     const [viewMode, setViewMode] = useState<'calendar' | 'summary'>('calendar');
     const [viewDate, setViewDate] = useState(new Date());
     const months = ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'];
@@ -101,17 +101,19 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
         const status: Record<string, { T: boolean; C: boolean; M: boolean; F: boolean }> = {};
         let allEntries: any[] = [];
         const ensureDate = (d: string) => { if (!status[d]) status[d] = { T: false, C: false, M: false, F: false }; };
+        
         Object.keys(workouts).forEach(id => {
-            const hist = storage.getHistory(id);
-            hist.forEach(h => {
+            const hist = externalHistory ? (externalHistory[id] || []) : storage.getHistory(id);
+            hist.forEach((h: any) => {
                 const datePart = h.date.split(/[ ,(]/)[0].replace(/,/g, ''); 
                 ensureDate(datePart);
                 status[datePart].T = true;
                 allEntries.push({ ...h, workoutId: id, workoutTitle: workouts[id].title });
             });
         });
-        const cardio = storage.getCardioSessions();
-        cardio.forEach(c => {
+        
+        const cardio = externalCardio || storage.getCardioSessions();
+        cardio.forEach((c: any) => {
             const [y, m, d] = c.date.split('-');
             const datePart = `${d.toString().padStart(2, '0')}.${m.toString().padStart(2, '0')}.${y}`;
             ensureDate(datePart);
@@ -119,6 +121,7 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
             else if (c.type === 'fight') status[datePart].F = true;
             else status[datePart].C = true;
         });
+        
         let stats = null;
         if (allEntries.length > 0) {
             allEntries.sort((a, b) => b.timestamp - a.timestamp);
@@ -139,7 +142,7 @@ export function ActivityWidget({ workouts, logo }: { workouts: any, logo: string
             stats = { title: latest.workoutTitle, date: latest.date.split(',')[0], totalWeight: Math.round(totalWeight), totalReps, totalSets, totalExercises: Object.keys(latest.results).length, duration: durationMatch ? durationMatch[1] : '--:--' };
         }
         return { dayStatus: status, lastSessionStats: stats };
-    }, [workouts]);
+    }, [workouts, externalHistory, externalCardio]);
 
     const prevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
     const nextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
