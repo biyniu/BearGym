@@ -40,17 +40,14 @@ const ViewRedirector = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+    const isCoach = location.pathname === '/coach-admin';
+    const targetManifest = isCoach ? 'manifest-coach.json' : 'manifest.json';
     
-    if (location.pathname === '/coach-admin') {
-      localStorage.setItem('bear_gym_role_pref', 'coach');
-      if (manifestLink) manifestLink.href = 'manifest-coach.json';
-    } else {
-      // Jeśli nie jesteśmy u trenera, ustawiamy domyślny manifest (dla klienta)
-      if (location.pathname === '/' || location.pathname === '') {
-        localStorage.setItem('bear_gym_role_pref', 'client');
-      }
-      if (manifestLink) manifestLink.href = 'manifest.json';
+    // Agresywna podmiana manifestu (usuwamy stary i wstawiamy nowy)
+    let manifestLink = document.getElementById('manifest-link') as HTMLLinkElement;
+    if (manifestLink && !manifestLink.href.includes(targetManifest)) {
+      manifestLink.href = targetManifest;
+      localStorage.setItem('bear_gym_role_pref', isCoach ? 'coach' : 'client');
     }
   }, [location.pathname]);
 

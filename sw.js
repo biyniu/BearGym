@@ -1,22 +1,16 @@
-const CACHE_NAME = 'bear-gym-cache-v1';
-
-// Pliki do cache'owania (opcjonalnie, dla działania offline)
-const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/manifest-coach.json'
-];
+const CACHE_NAME = 'bear-gym-v1';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
-  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
 });
 
 self.addEventListener('fetch', (event) => {
-  // Strategia: Najpierw sieć, potem cache (aby dane Firebase były zawsze świeże)
+  // Dla aplikacji treningowej najważniejsze są aktualne dane z Firebase, 
+  // dlatego stosujemy strategię Network-First.
   event.respondWith(
     fetch(event.request).catch(() => caches.match(event.request))
   );
