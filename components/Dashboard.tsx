@@ -26,6 +26,15 @@ export default function Dashboard() {
     return history.length > 0 ? history[0].date : 'Nigdy';
   };
 
+  // Sortowanie treningów według displayOrder
+  const sortedWorkouts = useMemo(() => {
+    return (Object.entries(workouts) as [string, WorkoutPlan][]).sort((a, b) => {
+        const orderA = (a[1] as any).displayOrder ?? 0;
+        const orderB = (b[1] as any).displayOrder ?? 0;
+        return orderA - orderB;
+    });
+  }, [workouts]);
+
   return (
     <div className="animate-fade-in relative">
       <div className="flex flex-col items-center mb-6">
@@ -46,7 +55,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 mb-6">
-        {(Object.entries(workouts) as [string, WorkoutPlan][]).map(([id, data]) => (
+        {sortedWorkouts.map(([id, data]) => (
           <button key={id} onClick={() => navigate(`/workout/${id}`)} className="bg-[#1e1e1e] rounded-xl shadow-md p-6 flex items-center justify-between border-l-4 border-red-500 hover:bg-gray-800 transition transform active:scale-95 group">
             <div className="text-left">
               <h2 className="text-xl font-black text-white italic uppercase group-hover:text-red-400 transition-colors">{data.title}</h2>

@@ -14,7 +14,7 @@ export default function CoachDashboard() {
   
   const [coaches, setCoaches] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
-  const [allClientsPool, setAllClientsPool] = useState<any[]>([]); // Pełna lista dla wyszukiwania
+  const [allClientsPool, setAllClientsPool] = useState<any[]>([]); 
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,7 +48,6 @@ export default function CoachDashboard() {
     if (role === 'super-admin') {
       const coachList = await remoteStorage.fetchAllCoaches();
       setCoaches(coachList);
-      // Dla super-admina pobierz wszystkich klientów do poola
       const clientList = await remoteStorage.fetchClients();
       setAllClientsPool(clientList);
       setClients(clientList);
@@ -80,6 +79,13 @@ export default function CoachDashboard() {
     }
   };
 
+  const handleShowAllClients = () => {
+    setSelectedCoachId(null);
+    setClients(allClientsPool);
+    setSelectedClient(null);
+    setSearchQuery('');
+  };
+
   const handleSelectCoach = async (id: string) => {
     setSelectedCoachId(id);
     setLoading(true);
@@ -103,7 +109,6 @@ export default function CoachDashboard() {
     setLoading(false);
   };
 
-  // Globalna wyszukiwarka przeszukuje allClientsPool niezależnie od zaznaczonego trenera
   const filteredClients = useMemo(() => {
     const listToFilter = searchQuery ? allClientsPool : clients;
     return listToFilter.filter(c => 
@@ -115,6 +120,16 @@ export default function CoachDashboard() {
       return a.name.localeCompare(b.name);
     });
   }, [clients, allClientsPool, searchQuery]);
+
+  // Posortowane dni planu według displayOrder
+  const sortedPlanEntries = useMemo(() => {
+    if (!editedPlan) return [];
+    return Object.entries(editedPlan).sort((a: any, b: any) => {
+        const orderA = a[1].displayOrder ?? 0;
+        const orderB = b[1].displayOrder ?? 0;
+        return orderA - orderB;
+    });
+  }, [editedPlan]);
 
   const flatHistory = useMemo(() => {
     if (!selectedClient?.history) return [];
@@ -237,20 +252,26 @@ export default function CoachDashboard() {
     const title = window.prompt("Nazwa dnia:");
     if(!title) return;
     const id = `w_${Date.now()}`;
-    setEditedPlan({ ...editedPlan, [id]: { title, exercises: [], warmup: [] } });
+    const maxOrder = sortedPlanEntries.length > 0 ? Math.max(...sortedPlanEntries.map(e => (e[1] as any).displayOrder || 0)) : 0;
+    setEditedPlan({ ...editedPlan, [id]: { title, exercises: [], warmup: [], displayOrder: maxOrder + 10 } });
   };
 
   const moveWorkoutDay = (workoutId: string, direction: 'up' | 'down') => {
-    const entries = Object.entries(editedPlan);
+    const entries = [...sortedPlanEntries];
     const index = entries.findIndex(([id]) => id === workoutId);
     if (index === -1) return;
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= entries.length) return;
-    const newEntries = [...entries];
-    [newEntries[index], newEntries[newIndex]] = [newEntries[newIndex], newEntries[index]];
-    const newObj: any = {};
-    newEntries.forEach(([id, val]) => { newObj[id] = val; });
-    setEditedPlan(newObj);
+    
+    // Zamiana miejscami w tablicy pomocniczej
+    [entries[index], entries[newIndex]] = [entries[newIndex], entries[index]];
+    
+    // Przebudowanie obiektu z nowymi displayOrder
+    const updatedPlan: any = {};
+    entries.forEach(([id, val], i) => {
+        updatedPlan[id] = { ...val, displayOrder: i * 10 };
+    });
+    setEditedPlan(updatedPlan);
   };
 
   const addExercise = (wId: string) => {
@@ -305,7 +326,7 @@ export default function CoachDashboard() {
         if (!workoutMap[planTitle]) {
             const wId = `w_${Date.now()}_${i}`;
             workoutMap[planTitle] = wId;
-            newPlan[wId] = { title: planTitle, exercises: [], warmup: [] };
+            newPlan[wId] = { title: planTitle, exercises: [], warmup: [], displayOrder: i * 10 };
         }
         const wId = workoutMap[planTitle];
         const isWarmup = cols[idx.sekcja]?.toLowerCase().includes('rozgrzewka') || cols[idx.sekcja]?.toLowerCase().includes('warmup');
@@ -400,7 +421,7 @@ export default function CoachDashboard() {
           </div>
         </div>
         <div className="p-4">
-          <div className="relative group">
+          <div className="relative group mb-4">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px] group-focus-within:text-red-500 transition-colors"></i>
             <input 
               type="text" 
@@ -410,6 +431,15 @@ export default function CoachDashboard() {
               className="w-full bg-black border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" 
             />
           </div>
+          
+          {userRole === 'super-admin' && (
+              <button 
+                onClick={handleShowAllClients}
+                className="w-full bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-500 hover:text-white py-3 rounded-xl transition font-black text-[9px] uppercase italic mb-6 shadow-lg"
+              >
+                  <i className="fas fa-users mr-2"></i> Pokaż wszystkich podopiecznych
+              </button>
+          )}
         </div>
         <div className="flex-grow overflow-y-auto p-4 space-y-6">
           {userRole === 'super-admin' && (
@@ -420,7 +450,7 @@ export default function CoachDashboard() {
               </div>
               {coaches.map(c => (
                 <div key={c.id} className="group relative flex items-center">
-                  <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-500'}`}><span className="font-bold text-[10px] uppercase italic">{c.name}</span></button>
+                  <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-500'}`}><span className="font-bold text-[11px] uppercase italic">{c.name}</span></button>
                   <button onClick={() => confirmDeleteCoach(c)} className="absolute right-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
                 </div>
               ))}
@@ -433,7 +463,7 @@ export default function CoachDashboard() {
             </div>
             {filteredClients.map(c => (
               <div key={c.code} className="group relative flex items-center">
-                <button onClick={() => loadClientDetail(c.code)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedClient?.code === c.code ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'} ${c.status === 'inactive' ? 'opacity-40' : ''}`}><div className="font-bold text-[10px] uppercase italic">{c.name}</div></button>
+                <button onClick={() => loadClientDetail(c.code)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedClient?.code === c.code ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'} ${c.status === 'inactive' ? 'opacity-40' : ''}`}><div className="font-bold text-[9px] uppercase italic">{c.name}</div></button>
                 <button onClick={() => confirmDeleteClient(c)} className="absolute right-2 opacity-0 group-hover:opacity-100 text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
               </div>
             ))}
@@ -467,7 +497,7 @@ export default function CoachDashboard() {
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-2xl font-black text-white italic uppercase tracking-tighter">Wykresy Postępów</h3>
                     <select value={selectedChartWorkoutId} onChange={e => setSelectedChartWorkoutId(e.target.value)} className="bg-black border border-gray-800 text-white p-3 rounded-xl text-xs font-black uppercase italic">
-                        {Object.entries(selectedClient.plan || {}).map(([id, w]: any) => (<option key={id} value={id}>{w.title}</option>))}
+                        {sortedPlanEntries.map(([id, w]: any) => (<option key={id} value={id}>{w.title}</option>))}
                     </select>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -535,7 +565,7 @@ export default function CoachDashboard() {
                    <button onClick={() => setModalType('excel-import')} className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-4 rounded-2xl font-black uppercase italic text-[10px] shadow-xl transition active:scale-95"><i className="fas fa-file-excel mr-2"></i> IMPORT Z EXCELA</button>
                    {!isEditingPlan ? (<button onClick={() => setIsEditingPlan(true)} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">EDYTUJ PLAN</button>) : (<><button onClick={handleSavePlan} className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-2xl font-black uppercase italic text-xs shadow-xl transition active:scale-95">ZAPISZ</button><button onClick={() => setIsEditingPlan(false)} className="bg-gray-800 text-gray-500 px-8 py-4 rounded-2xl font-bold uppercase text-xs">ANULUJ</button></>)}
                 </div>
-                {Object.entries(editedPlan || {}).map(([wId, workout]: any, wIdx) => (
+                {sortedPlanEntries.map(([wId, workout]: any, wIdx) => (
                   <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-8 shadow-2xl space-y-8 animate-fade-in">
                     <div className="flex justify-between items-center border-b border-gray-800 pb-6">
                         <div className="flex items-center space-x-4">
@@ -544,8 +574,8 @@ export default function CoachDashboard() {
                                 <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{workout.title}</h3>
                                 {isEditingPlan && (
                                     <div className="flex space-x-2">
-                                        <button onClick={() => moveWorkoutDay(wId, 'up')} className="text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg"><i className="fas fa-arrow-up text-xs"></i></button>
-                                        <button onClick={() => moveWorkoutDay(wId, 'down')} className="text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg"><i className="fas fa-arrow-down text-xs"></i></button>
+                                        <button onClick={() => moveWorkoutDay(wId, 'up')} className={`text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg ${wIdx === 0 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-up text-xs"></i></button>
+                                        <button onClick={() => moveWorkoutDay(wId, 'down')} className={`text-gray-500 hover:text-white transition p-2 bg-gray-800 rounded-lg ${wIdx === sortedPlanEntries.length - 1 ? 'opacity-20 pointer-events-none' : ''}`}><i className="fas fa-arrow-down text-xs"></i></button>
                                     </div>
                                 )}
                             </div>
@@ -613,7 +643,7 @@ export default function CoachDashboard() {
 
             {activeTab === 'training' && (
                 <div className="space-y-6 animate-fade-in">
-                    {!activeTraining ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{Object.entries(selectedClient.plan || {}).map(([id, w]: any) => (<button key={id} onClick={() => startLiveTraining(id)} className="bg-[#161616] p-10 rounded-3xl border border-gray-800 hover:border-yellow-500 text-center shadow-2xl group transition transform active:scale-95"><i className="fas fa-play text-4xl text-gray-700 group-hover:text-yellow-500 mb-6 block transition"></i><span className="text-white font-black italic uppercase tracking-widest text-lg">{w.title}</span></button>))}</div>) : (<div className="bg-[#111] p-10 rounded-3xl border border-yellow-600/50 shadow-2xl"><div className="flex justify-between items-center mb-12"><div><h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{selectedClient.plan[activeTraining.workoutId].title}</h3><p className="text-yellow-500 text-[10px] font-black uppercase tracking-widest mt-1">TRENING NA ŻYWO</p></div><div className="flex items-center space-x-4"><button onClick={() => setActiveTraining(null)} className="text-gray-500 hover:text-white font-bold text-xs uppercase italic">Anuluj</button><button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-10 py-5 rounded-2xl font-black text-white uppercase italic shadow-2xl transition transform active:scale-95">ZAKOŃCZ I ZAPISZ</button></div></div><div className="space-y-6">{selectedClient.plan[activeTraining.workoutId].exercises.map((ex: any) => (<div key={ex.id} className="bg-black/40 p-8 rounded-2xl border border-gray-800 hover:border-gray-700 transition group"><div className="flex justify-between items-center mb-8"><span className="text-2xl font-black text-white uppercase italic tracking-tight">{ex.name}</span><span className="bg-gray-800 px-4 py-2 rounded-full text-[10px] text-gray-400 font-bold uppercase tracking-widest">{ex.reps}p | {ex.tempo} | RIR {ex.rir}</span></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">{Array.from({length: ex.sets}).map((_, sIdx) => (<div key={sIdx} className="space-y-3"><span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest">Seria {sIdx+1}</span><div className="flex space-x-2"><input placeholder="kg" value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} className="w-1/2 bg-black border border-gray-800 text-white p-4 rounded-2xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition" /><input placeholder="p" value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} className="w-1/2 bg-black border border-gray-800 text-white p-4 rounded-2xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition" /></div></div>))}</div></div>))}</div></div>)}
+                    {!activeTraining ? (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{sortedPlanEntries.map(([id, w]: any) => (<button key={id} onClick={() => startLiveTraining(id)} className="bg-[#161616] p-10 rounded-3xl border border-gray-800 hover:border-yellow-500 text-center shadow-2xl group transition transform active:scale-95"><i className="fas fa-play text-4xl text-gray-700 group-hover:text-yellow-500 mb-6 block transition"></i><span className="text-white font-black italic uppercase tracking-widest text-lg">{w.title}</span></button>))}</div>) : (<div className="bg-[#111] p-10 rounded-3xl border border-yellow-600/50 shadow-2xl"><div className="flex justify-between items-center mb-12"><div><h3 className="text-3xl font-black text-white italic uppercase tracking-tighter">{selectedClient.plan[activeTraining.workoutId].title}</h3><p className="text-yellow-500 text-[10px] font-black uppercase tracking-widest mt-1">TRENING NA ŻYWO</p></div><div className="flex items-center space-x-4"><button onClick={() => setActiveTraining(null)} className="text-gray-500 hover:text-white font-bold text-xs uppercase italic">Anuluj</button><button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-10 py-5 rounded-2xl font-black text-white uppercase italic shadow-2xl transition transform active:scale-95">ZAKOŃCZ I ZAPISZ</button></div></div><div className="space-y-6">{selectedClient.plan[activeTraining.workoutId].exercises.map((ex: any) => (<div key={ex.id} className="bg-black/40 p-8 rounded-2xl border border-gray-800 hover:border-gray-700 transition group"><div className="flex justify-between items-center mb-8"><span className="text-2xl font-black text-white uppercase italic tracking-tight">{ex.name}</span><span className="bg-gray-800 px-4 py-2 rounded-full text-[10px] text-gray-400 font-bold uppercase tracking-widest">{ex.reps}p | {ex.tempo} | RIR {ex.rir}</span></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">{Array.from({length: ex.sets}).map((_, sIdx) => (<div key={sIdx} className="space-y-3"><span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest">Seria {sIdx+1}</span><div className="flex space-x-2"><input placeholder="kg" value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} className="w-1/2 bg-black border border-gray-800 text-white p-4 rounded-2xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition" /><input placeholder="p" value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} className="w-1/2 bg-black border border-gray-800 text-white p-4 rounded-2xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition" /></div></div>))}</div></div>))}</div></div>)}
                 </div>
             )}
           </div>
