@@ -203,10 +203,8 @@ export default function CoachDashboard() {
     if (!selectedClient?.history) return [];
     const all: any[] = [];
     Object.entries(selectedClient.history).forEach(([wId, historyArray]: [string, any]) => {
-        // FILTRUJEMY HISTORIĘ: TYLKO DLA TRENINGÓW KTÓRE SĄ W PLANIE
         if (Array.isArray(historyArray) && selectedClient.plan?.[wId]) {
             historyArray.forEach(h => {
-                // Fixed: use wId instead of undefined id, and selectedClient.plan instead of undefined workouts
                 all.push({ ...h, workoutId: wId, workoutTitle: selectedClient.plan[wId].title });
             });
         }
@@ -218,7 +216,6 @@ export default function CoachDashboard() {
     if (!flatHistory) return [];
     return flatHistory.slice()
       .filter(h => h.workoutId === workoutId)
-      // POPRAWKA: Sortowanie chronologiczne według parsowanej daty dla pewności
       .sort((a, b) => parseDateStr(a.date) - parseDateStr(b.date))
       .map(entry => {
         const resultStr = entry.results[exerciseId];
@@ -230,19 +227,16 @@ export default function CoachDashboard() {
         for (const match of matches) {
           const weightVal = parseFloat(match[1].replace(',', '.'));
           if (!isNaN(weightVal)) {
-            // Fix line 232: Cannot assign to weightVal because it is a constant. Correctly update maxWeight.
             if (weightVal > maxWeight) maxWeight = weightVal;
             found = true;
           }
         }
         if (!found) return null;
-        // Pokazujemy tylko DD.MM na osi X
         return { date: entry.date.split(/[ ,]/)[0].slice(0, 5), weight: maxWeight };
       })
       .filter(Boolean);
   };
 
-  // Add missing groupedCardio, cardioTypeInfo, and deleteCardioSession
   const groupedCardio = useMemo(() => {
     if (!selectedClient?.extras?.cardio) return [];
     const sessions = selectedClient.extras.cardio as CardioSession[];
@@ -649,7 +643,6 @@ export default function CoachDashboard() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex flex-col md:flex-row text-gray-300 font-sans overflow-hidden">
       
-      {/* Mobile Top Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-[#111] border-b border-gray-800 z-30">
         <div className="flex items-center space-x-3">
           <div className="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-black italic shadow-lg">B</div>
@@ -660,7 +653,6 @@ export default function CoachDashboard() {
         </button>
       </div>
 
-      {/* Sidebar Overlay (Mobile) */}
       {isMobileSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden" 
@@ -668,7 +660,6 @@ export default function CoachDashboard() {
         />
       )}
 
-      {/* Sidebar */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 bg-[#111] border-r border-gray-800 flex flex-col h-screen 
         transition-all duration-300 ease-in-out
@@ -875,7 +866,7 @@ export default function CoachDashboard() {
                                        value={ex.link || ''} 
                                        onChange={(e) => handleExerciseChange(wId, idx, 'link', e.target.value)} 
                                        placeholder="Link YouTube" 
-                                       className="w-full bg-black border border-gray-700 text-blue-400 p-2 rounded text-[10px] outline-none"
+                                       className="w-full bg-black border border-gray-800 text-blue-400 p-2 rounded text-[10px] outline-none"
                                      />
                                   </div>
                                 ) : (
@@ -902,7 +893,6 @@ export default function CoachDashboard() {
                 <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter">Historia Treningów</h3>
                 <div className="grid grid-cols-1 gap-4">
                     {flatHistory.map((h: any, i: number) => {
-                        // FILTRUJEMY I SORTUJEMY WYNIKI: TYLKO ĆWICZENIA KTÓRE SĄ W PLANIE, W ODPOWIEDNIEJ KOLEJNOŚCI
                         const workoutPlan = selectedClient.plan?.[h.workoutId];
                         const resultsToShow = workoutPlan?.exercises
                             ? workoutPlan.exercises
@@ -993,33 +983,22 @@ export default function CoachDashboard() {
                         </div>
                     ) : (
                         <div className="bg-[#111] p-4 md:p-8 rounded-3xl border border-yellow-600/50 shadow-2xl">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-10 relative">
-                                <div>
-                                    <h3 className="text-2xl md:text-3xl font-black text-white italic uppercase tracking-tighter truncate">{selectedClient.plan[activeTraining.workoutId].title}</h3>
-                                    <p className="text-yellow-500 text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1">SESJA TRENINGOWA NA ŻYWO</p>
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-6 md:mb-10 relative">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-2xl md:text-4xl font-black text-white italic uppercase tracking-tighter truncate">{selectedClient.plan[activeTraining.workoutId].title}</h3>
+                                    <p className="text-yellow-500 text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] mt-1.5 flex items-center">
+                                      <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span> SESJA TRENINGOWA NA ŻYWO
+                                    </p>
                                 </div>
                                 
-                                {/* REST TIMER BOX - JAK U PODOPIECZNEGO */}
-                                <div className="bg-black/50 border-2 border-blue-500/30 rounded-2xl p-4 flex flex-col items-center justify-center min-w-[120px] transition-all">
-                                    {restTimer.timeLeft !== null ? (
-                                        <div className="text-center animate-pulse" onClick={stopRestTimer}>
-                                            <span className="text-[10px] font-black text-blue-400 uppercase italic leading-none">Przerwa</span>
-                                            <div className="text-4xl font-black text-blue-500 font-mono tracking-tighter">{restTimer.timeLeft}s</div>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center opacity-10">
-                                            <span className="text-[10px] font-black text-gray-600 uppercase italic leading-none">Ready</span>
-                                            <div className="text-4xl font-black text-gray-600 font-mono tracking-tighter">--</div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex items-center space-x-3 md:space-x-4 w-full sm:w-auto">
-                                    <button onClick={() => setModalType('coach-audio-settings')} className="text-gray-500 hover:text-white transition-colors p-3 bg-gray-900 rounded-xl border border-gray-800">
-                                        <i className="fas fa-cog text-xl"></i>
+                                <div className="flex items-center space-x-2 md:space-x-4 w-full sm:w-auto self-end sm:self-center">
+                                    <button onClick={() => setModalType('coach-audio-settings')} className="text-gray-400 hover:text-white transition-all p-3 md:p-5 bg-gray-900/50 rounded-2xl border border-gray-800 hover:border-gray-600" title="Ustawienia dźwięku">
+                                        <i className="fas fa-cog text-xl md:text-2xl"></i>
                                     </button>
-                                    <button onClick={() => setActiveTraining(null)} className="text-gray-500 hover:text-white font-bold text-[10px] md:text-xs uppercase italic flex-1 sm:flex-none py-3">Anuluj</button>
-                                    <button onClick={finishLiveTraining} className="bg-green-600 hover:bg-green-700 px-6 md:px-10 py-3 md:py-5 rounded-2xl font-black text-white text-xs md:text-sm uppercase italic shadow-2xl transition transform active:scale-95 flex-1 sm:flex-none">ZAKOŃCZ I ZAPISZ TRENING</button>
+                                    <button onClick={() => setActiveTraining(null)} className="bg-gray-800/40 hover:bg-red-900/20 text-gray-500 hover:text-red-500 font-bold text-[10px] md:text-xs uppercase italic px-4 md:px-6 py-3 md:py-5 rounded-2xl border border-gray-800 transition-all">Anuluj</button>
+                                    <button onClick={finishLiveTraining} className="flex-grow sm:flex-none bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 px-6 md:px-12 py-3 md:py-5 rounded-2xl font-black text-white text-xs md:text-base uppercase italic shadow-2xl shadow-green-900/20 transition transform active:scale-95 flex items-center justify-center whitespace-nowrap">
+                                      <i className="fas fa-save mr-2 md:mr-3"></i> ZAKOŃCZ I ZAPISZ
+                                    </button>
                                 </div>
                             </div>
 

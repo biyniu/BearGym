@@ -31,16 +31,53 @@ interface AppContextType {
   setWorkoutStartTime: (t: number | null) => void;
   restTimer: { timeLeft: number | null, duration: number };
   startRestTimer: (duration: number) => void;
-  stopRestTimer: () => void;
+  stopRestTimer: (force?: boolean) => void;
   logout: () => void;
 }
 
 export const AppContext = React.createContext<AppContextType>({} as AppContextType);
 
+// Globalny pływający baner przerwy (widoczny wszędzie)
+const GlobalRestBanner = () => {
+  const { restTimer, stopRestTimer } = useContext(AppContext);
+  
+  if (restTimer.timeLeft === null) return null;
+
+  return (
+    <div 
+      className="fixed top-0 left-0 right-0 z-[10000] flex justify-center p-3 animate-fade-in pointer-events-none"
+    >
+      <div 
+        onClick={() => stopRestTimer(false)} // Potwierdzenie przy kliknięciu
+        className="pointer-events-auto bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.7)] border-2 border-red-400 px-10 py-4 rounded-3xl flex flex-col items-center justify-center animate-banner-pulse cursor-pointer transition-transform active:scale-95"
+      >
+        <span className="text-[10px] font-black text-red-100 uppercase tracking-[0.2em] leading-none mb-1.5 drop-shadow-md">
+          PRZERWA W TOKU
+        </span>
+        <div className="flex items-center space-x-3">
+          <i className="fas fa-stopwatch text-white text-2xl drop-shadow-lg"></i>
+          <span className="text-4xl font-black text-white font-mono leading-none tracking-tighter drop-shadow-lg">
+            {restTimer.timeLeft}s
+          </span>
+        </div>
+      </div>
+      <style>{`
+        @keyframes banner-pulse {
+          0%, 100% { transform: scale(1); filter: brightness(1); }
+          50% { transform: scale(1.03); filter: brightness(1.2); }
+        }
+        .animate-banner-pulse {
+          animation: banner-pulse 0.8s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  );
+};
+
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logo, clientCode, workouts, restTimer, stopRestTimer } = useContext(AppContext);
+  const { logo, clientCode, workouts } = useContext(AppContext);
   
   const isHome = location.pathname === '/';
   const isWorkout = location.pathname.startsWith('/workout/');
@@ -67,13 +104,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </div>
 
-        {isWorkout && restTimer.timeLeft !== null && (
-          <div className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center animate-pulse cursor-pointer" onClick={stopRestTimer}>
-             <span className="text-[8px] font-bold text-gray-500 uppercase">PRZERWA</span>
-             <span className="text-xl font-black text-red-500 font-mono leading-none">{restTimer.timeLeft}s</span>
-          </div>
-        )}
-
         {!isHome && (
           <div className="flex items-center space-x-2">
             {isWorkout && (
@@ -95,7 +125,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       {clientCode && <AICoachWidget />}
 
       {isHome && (
-        <div className="fixed bottom-6 right-6 z-50 animate-bounce-slow">
+        <div className="fixed bottom-6 right-6 z-40 animate-bounce-slow">
            <button onClick={() => navigate('/settings')} className="bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl transition transform hover:scale-110 active:scale-90">
             <i className="fas fa-cog"></i>
           </button>
@@ -147,34 +177,18 @@ export default function App() {
     const saved = sessionStorage.getItem('workout_start_time');
     return saved ? parseInt(saved) : null;
   });
-  const [restTimer, setRestTimer] = useState<{ timeLeft: number | null, duration: number }>({ timeLeft: null, duration: 0 });
-  const restEndTimeRef = useRef<number | null>(null);
-  const restIntervalRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-        Notification.requestPermission();
-    }
-  }, []);
+  // REST TIMER LOGIC
+  const [restTimer, setRestTimer] = useState<{ timeLeft: number | null, duration: number }>({ 
+    timeLeft: null, 
+    duration: 0 
+  });
+  const restIntervalRef = useRef<number | null>(null);
 
   const setWorkoutStartTime = (t: number | null) => {
     if (t) sessionStorage.setItem('workout_start_time', t.toString());
     else sessionStorage.removeItem('workout_start_time');
     setWorkoutStartTimeState(t);
-  };
-
-  const playSoundNote = (ctx: AudioContext, freq: number, startTime: number, vol: number, duration: number = 1.2, type: OscillatorType = 'sine') => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, startTime);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(startTime);
-      osc.stop(startTime + duration);
-      gain.gain.setValueAtTime(0, startTime);
-      gain.gain.linearRampToValueAtTime(vol, startTime + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.1);
   };
 
   const playAlarm = useCallback(() => {
@@ -187,6 +201,20 @@ export default function App() {
       const now = ctx.currentTime;
       const vol = currentSettings.volume !== undefined ? currentSettings.volume : 0.5;
       
+      const playSoundNote = (ctx: AudioContext, freq: number, startTime: number, vol: number, duration: number = 1.2, type: OscillatorType = 'sine') => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, startTime);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+          gain.gain.setValueAtTime(0, startTime);
+          gain.gain.linearRampToValueAtTime(vol, startTime + 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.1);
+      };
+
       switch (currentSettings.soundType) {
         case 'siren': {
             const osc = ctx.createOscillator();
@@ -258,52 +286,96 @@ export default function App() {
 
   const triggerBackgroundNotification = useCallback(() => {
     if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("KONIEC PRZERWY!", {
-            body: "Wracaj do treningu!",
+        new Notification("BEAR GYM: KONIEC PRZERWY!", {
+            body: "Wracaj do serii!",
             icon: logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP',
             silent: false
         });
     }
   }, [logo]);
 
+  // Synchronizacja Wall Clock (odporność na tło)
+  const syncTimer = useCallback(() => {
+    const savedEndTime = localStorage.getItem('rest_end_time');
+    if (savedEndTime) {
+        const endTime = parseInt(savedEndTime);
+        const now = Date.now();
+        if (now >= endTime) {
+            stopRestTimer(true);
+            playAlarm();
+        } else {
+            const remaining = Math.round((endTime - now) / 1000);
+            setRestTimer(prev => ({ ...prev, timeLeft: remaining }));
+        }
+    }
+  }, [playAlarm]);
+
   useEffect(() => {
     const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible' && restEndTimeRef.current !== null) {
-            const now = Date.now();
-            if (now >= restEndTimeRef.current) {
-                stopRestTimer();
-                playAlarm();
-            }
-        }
+        if (document.visibilityState === 'visible') syncTimer();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [playAlarm]);
+  }, [syncTimer]);
+
+  useEffect(() => {
+    if (restTimer.timeLeft !== null) {
+        if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+        restIntervalRef.current = window.setInterval(() => {
+            const savedEndTime = localStorage.getItem('rest_end_time');
+            if (savedEndTime) {
+                const endTime = parseInt(savedEndTime);
+                const now = Date.now();
+                const timeLeft = Math.max(0, Math.round((endTime - now) / 1000));
+                
+                if (timeLeft <= 0) {
+                    stopRestTimer(true);
+                    playAlarm();
+                    if (document.visibilityState !== 'visible') triggerBackgroundNotification();
+                } else {
+                    setRestTimer(prev => ({ ...prev, timeLeft }));
+                }
+            } else {
+                stopRestTimer(true);
+            }
+        }, 1000);
+    } else {
+        if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+        restIntervalRef.current = null;
+    }
+    return () => { if(restIntervalRef.current) clearInterval(restIntervalRef.current); };
+  }, [restTimer.timeLeft, playAlarm, triggerBackgroundNotification]);
+
+  // Inicjalizacja przy przeładowaniu
+  useEffect(() => {
+    const savedEndTime = localStorage.getItem('rest_end_time');
+    if (savedEndTime) {
+        const endTime = parseInt(savedEndTime);
+        if (endTime > Date.now()) {
+            setRestTimer({ 
+                timeLeft: Math.round((endTime - Date.now()) / 1000), 
+                duration: 0 
+            });
+        } else {
+            localStorage.removeItem('rest_end_time');
+        }
+    }
+  }, []);
 
   const startRestTimer = (duration: number) => {
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     const endTime = Date.now() + (duration * 1000);
-    restEndTimeRef.current = endTime;
+    localStorage.setItem('rest_end_time', endTime.toString());
     setRestTimer({ timeLeft: duration, duration });
-    restIntervalRef.current = window.setInterval(() => {
-      const now = Date.now();
-      const timeLeft = Math.max(0, Math.round((endTime - now) / 1000));
-      if (timeLeft <= 0) {
-        stopRestTimer();
-        playAlarm();
-        if (document.visibilityState !== 'visible') {
-            triggerBackgroundNotification();
-        }
-      } else {
-        setRestTimer(prev => ({ ...prev, timeLeft }));
-      }
-    }, 1000);
   };
 
-  const stopRestTimer = () => {
+  const stopRestTimer = (force: boolean = true) => {
+    if (!force) {
+        const confirmEnd = window.confirm("Czy na pewno chcesz zakończyć przerwę przed czasem?");
+        if (!confirmEnd) return;
+    }
     if (restIntervalRef.current) clearInterval(restIntervalRef.current);
     restIntervalRef.current = null;
-    restEndTimeRef.current = null;
+    localStorage.removeItem('rest_end_time');
     setRestTimer({ timeLeft: null, duration: 0 });
   };
 
@@ -366,6 +438,7 @@ export default function App() {
   const logout = () => {
     localStorage.removeItem('bear_gym_client_code');
     localStorage.removeItem('bear_gym_client_name');
+    localStorage.removeItem('rest_end_time');
     sessionStorage.removeItem('init_redirect_done');
     sessionStorage.removeItem('workout_start_time');
     setClientCode(null);
@@ -413,6 +486,7 @@ export default function App() {
       workoutStartTime, setWorkoutStartTime, restTimer, startRestTimer, stopRestTimer, logout
     }}>
       <InstallPrompt />
+      <GlobalRestBanner />
       <HashRouter>
         <ClientRouteGuard clientCode={clientCode} syncError={syncError} isReady={isReady} handleLogin={handleLogin}>
           <Routes>
