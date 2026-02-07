@@ -1,0 +1,437 @@
+
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import { HashRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import Dashboard from './components/Dashboard';
+import ActiveWorkout from './components/ActiveWorkout';
+import HistoryView from './components/HistoryView';
+import SettingsView from './components/SettingsView';
+import ProgressView from './components/ProgressView';
+import MeasurementsView from './components/MeasurementsView';
+import CardioView from './components/CardioView';
+import AuthView from './components/AuthView';
+import CoachDashboard from './components/CoachDashboard';
+import InstallPrompt from './components/InstallPrompt';
+import AICoachWidget from './components/AICoachWidget';
+import { localStorageCache, remoteStorage, storage } from './services/storage';
+import { WorkoutsMap, AppSettings } from './types';
+import { CLIENT_CONFIG, DEFAULT_SETTINGS } from './constants';
+
+interface AppContextType {
+  clientCode: string | null;
+  clientName: string;
+  workouts: WorkoutsMap;
+  settings: AppSettings;
+  updateSettings: (s: AppSettings) => void;
+  updateWorkouts: (w: WorkoutsMap) => void;
+  logo: string;
+  updateLogo: (s: string) => void;
+  playAlarm: () => void;
+  syncData: (type: 'history' | 'extras' | 'plan', data: any) => void;
+  // Globalne stopery
+  workoutStartTime: number | null;
+  setWorkoutStartTime: (t: number | null) => void;
+  restTimer: { timeLeft: number | null, duration: number };
+  startRestTimer: (duration: number) => void;
+  stopRestTimer: () => void;
+}
+
+export const AppContext = React.createContext<AppContextType>({} as AppContextType);
+
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { logo, clientCode, workouts, restTimer, stopRestTimer } = useContext(AppContext);
+  
+  const isHome = location.pathname === '/';
+  const isWorkout = location.pathname.startsWith('/workout/');
+  const workoutId = isWorkout ? location.pathname.split('/').pop() : null;
+  const workoutTitle = workoutId && workouts[workoutId] ? workouts[workoutId].title : "BEAR GYM";
+
+  return (
+    <div className="max-w-md mx-auto min-h-screen flex flex-col relative bg-[#121212] text-[#e0e0e0] font-sans">
+      {/* HEADER FIXED - Zmiana na fixed, aby klawiatura go nie wypychała */}
+      <header className="fixed top-0 left-0 right-0 max-w-md mx-auto p-4 flex justify-between items-center border-b border-gray-700 bg-neutral-900 z-50 shadow-md h-16">
+        <div className="flex items-center space-x-3 overflow-hidden">
+          <div className="w-10 h-10 rounded-full overflow-hidden border border-red-600 bg-gray-800 shrink-0 shadow-lg">
+             <img 
+               src={logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'} 
+               alt="Logo" 
+               className="w-full h-full object-cover"
+               onError={(e) => { (e.target as HTMLImageElement).src='https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP'; }} 
+             />
+          </div>
+          <div className="overflow-hidden">
+            <h1 className="text-sm font-black text-white tracking-tight leading-none truncate uppercase">
+              {isWorkout ? workoutTitle : "BEAR GYM"}
+            </h1>
+            {!isWorkout && <span className="text-[10px] text-red-500 font-bold tracking-widest uppercase block truncate">ID: {clientCode}</span>}
+          </div>
+        </div>
+
+        {isWorkout && restTimer.timeLeft !== null && (
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center animate-pulse cursor-pointer" onClick={stopRestTimer}>
+             <span className="text-[8px] font-bold text-gray-500 uppercase">PRZERWA</span>
+             <span className="text-xl font-black text-red-500 font-mono leading-none">{restTimer.timeLeft}s</span>
+          </div>
+        )}
+
+        {!isHome && (
+          <div className="flex items-center space-x-2">
+            {isWorkout && (
+               <button 
+                onClick={() => navigate('/settings')} 
+                className="text-gray-400 hover:text-white bg-gray-800 p-2 rounded-lg border border-gray-700"
+              >
+                <i className="fas fa-cog text-sm"></i>
+              </button>
+            )}
+            <button 
+              onClick={() => navigate('/')} 
+              className="text-gray-300 hover:text-white bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-600 flex items-center text-xs font-bold"
+            >
+              <i className="fas fa-arrow-left mr-1"></i> WRÓĆ
+            </button>
+          </div>
+        )}
+      </header>
+
+      {/* Padding top dodany, aby treść nie chowała się pod fixed header */}
+      <div className="p-3 space-y-4 flex-grow pb-24 pt-20">
+        {children}
+      </div>
+
+      {/* ASYSTENT AI - POKAŻ TYLKO GDY ZALOGOWANY */}
+      {clientCode && <AICoachWidget />}
+
+      {isHome && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce-slow">
+           <button 
+            onClick={() => navigate('/settings')} 
+            className="bg-blue-600 hover:bg-blue-700 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-xl transition transform hover:scale-110 active:scale-90"
+          >
+            <i className="fas fa-cog"></i>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ClientRouteGuard: React.FC<{ 
+  children: React.ReactNode, 
+  clientCode: string | null, 
+  syncError: string | null, 
+  isReady: boolean, 
+  handleLogin: (code: string, userData: any) => void 
+}> = ({ children, clientCode, syncError, isReady, handleLogin }) => {
+  const location = useLocation();
+  const isCoachRoute = location.pathname === '/coach-admin';
+
+  if (isCoachRoute) return <>{children}</>;
+  if (!clientCode) return <AuthView onLogin={handleLogin} />;
+  if (syncError) return <div className="p-10 text-center text-red-500">{syncError}</div>;
+  if (!isReady) return (
+    <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <i className="fas fa-spinner fa-spin text-red-600 text-4xl"></i>
+    </div>
+  );
+
+  return <Layout>{children}</Layout>;
+};
+
+export default function App() {
+  const [clientCode, setClientCode] = useState<string | null>(localStorage.getItem('bear_gym_client_code'));
+  const [clientName, setClientName] = useState<string>(localStorage.getItem('bear_gym_client_name') || '');
+  const [workouts, setWorkouts] = useState<WorkoutsMap>(() => {
+    const local = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
+    return local ? JSON.parse(local) : {};
+  });
+  const [settings, setSettings] = useState<AppSettings>(localStorageCache.get('app_settings') || DEFAULT_SETTINGS);
+  
+  // Ref dla settings, aby timer zawsze widział aktualny stan
+  const settingsRef = useRef(settings);
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  const [logo, setLogo] = useState<string>(localStorage.getItem('app_logo') || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP');
+  const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Stopery
+  const [workoutStartTime, setWorkoutStartTimeState] = useState<number | null>(() => {
+    const saved = sessionStorage.getItem('workout_start_time');
+    return saved ? parseInt(saved) : null;
+  });
+  const [restTimer, setRestTimer] = useState<{ timeLeft: number | null, duration: number }>({ timeLeft: null, duration: 0 });
+  const restIntervalRef = useRef<number | null>(null);
+
+  const setWorkoutStartTime = (t: number | null) => {
+    if (t) sessionStorage.setItem('workout_start_time', t.toString());
+    else sessionStorage.removeItem('workout_start_time');
+    setWorkoutStartTimeState(t);
+  };
+
+  const playSoundNote = (ctx: AudioContext, freq: number, startTime: number, vol: number, duration: number = 1.2, type: OscillatorType = 'sine') => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, startTime);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+      
+      // Envelope
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(vol, startTime + 0.05); // Attack
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration - 0.1); // Decay
+  };
+
+  const playAlarm = useCallback(() => {
+    const currentSettings = settingsRef.current; // Używamy refa, aby mieć świeże dane wewnątrz interwału
+
+    // 1. Dźwięk
+    const CtxClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (CtxClass) {
+      let ctx = audioCtx || new CtxClass();
+      if (!audioCtx) setAudioCtx(ctx);
+      if (ctx.state === 'suspended') ctx.resume();
+      
+      const now = ctx.currentTime;
+      const vol = currentSettings.volume !== undefined ? currentSettings.volume : 0.5;
+      
+      switch (currentSettings.soundType) {
+        case 'siren': { // Głośna Syrena
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sawtooth'; // Przebija się przez hałas
+            
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.linearRampToValueAtTime(1500, now + 0.5); // Up
+            osc.frequency.linearRampToValueAtTime(600, now + 1.0);  // Down
+            osc.frequency.linearRampToValueAtTime(1500, now + 1.5); // Up
+            osc.frequency.linearRampToValueAtTime(600, now + 2.0);  // Down
+            
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start(now);
+            osc.stop(now + 2.5);
+            
+            gain.gain.setValueAtTime(vol, now);
+            gain.gain.linearRampToValueAtTime(0, now + 2.5);
+            break;
+        }
+        case 'school_bell': { // Dzwonek szkolny
+            // Symulacja dzwonka elektrycznego (szybka modulacja)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const lfo = ctx.createOscillator();
+            const lfoGain = ctx.createGain();
+
+            osc.type = 'square'; // Metaliczny dźwięk
+            osc.frequency.setValueAtTime(1200, now);
+
+            lfo.type = 'square'; // Modulator (młoteczek)
+            lfo.frequency.setValueAtTime(25, now); // 25 uderzeń na sekundę
+
+            lfo.connect(lfoGain);
+            lfoGain.connect(gain.gain);
+            lfoGain.gain.value = vol; // Głębokość modulacji
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now);
+            lfo.start(now);
+            osc.stop(now + 2.5);
+            lfo.stop(now + 2.5);
+            
+            //Envelope na wyjściu żeby nie strzelało
+            gain.gain.setValueAtTime(vol * 0.5, now); // Start volume
+            gain.gain.linearRampToValueAtTime(0, now + 2.5);
+            break;
+        }
+        case 'bell': // Classic Bell (C5)
+            playSoundNote(ctx, 523.25, now, vol, 2.0);
+            break;
+        case 'double_bell': // Double Soft Bell (C5 + C5)
+            playSoundNote(ctx, 523.25, now, vol, 1.5);
+            playSoundNote(ctx, 523.25, now + 0.3, vol, 2.0);
+            break;
+        case 'chord': // Soft Major Triad Arpeggio (C-E-G)
+            playSoundNote(ctx, 523.25, now, vol * 0.5, 2.0);
+            playSoundNote(ctx, 659.25, now + 0.1, vol * 0.5, 2.0);
+            playSoundNote(ctx, 783.99, now + 0.2, vol * 0.5, 2.5);
+            break;
+        case 'cosmic': // Higher pitch, dreamy
+            playSoundNote(ctx, 880.00, now, vol * 0.4, 2.0); // A5
+            playSoundNote(ctx, 1108.73, now + 0.15, vol * 0.4, 2.5); // C#6
+            break;
+        case 'gong': // Low Frequency, long sustain
+            playSoundNote(ctx, 196.00, now, vol * 0.8, 3.0); // G3
+            playSoundNote(ctx, 392.00, now, vol * 0.4, 2.5); // G4 harmonic
+            break;
+        case 'victory': // Rising scale (C-E-G-C)
+            playSoundNote(ctx, 523.25, now, vol * 0.4, 0.5);
+            playSoundNote(ctx, 659.25, now + 0.15, vol * 0.4, 0.5);
+            playSoundNote(ctx, 783.99, now + 0.30, vol * 0.4, 0.5);
+            playSoundNote(ctx, 1046.50, now + 0.45, vol * 0.4, 2.0);
+            break;
+        default: // Fallback to bell
+            playSoundNote(ctx, 523.25, now, vol, 2.0);
+            break;
+      }
+    }
+    // Usunięto obsługę wibracji zgodnie z życzeniem
+  }, [audioCtx]);
+
+  const startRestTimer = (duration: number) => {
+    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    setRestTimer({ timeLeft: duration, duration });
+    restIntervalRef.current = window.setInterval(() => {
+      setRestTimer(prev => {
+        if (prev.timeLeft === null || prev.timeLeft <= 1) {
+          if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+          playAlarm();
+          return { timeLeft: null, duration: 0 };
+        }
+        return { ...prev, timeLeft: prev.timeLeft - 1 };
+      });
+    }, 1000);
+  };
+
+  const stopRestTimer = () => {
+    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
+    setRestTimer({ timeLeft: null, duration: 0 });
+  };
+
+  const initData = useCallback(async (code: string) => {
+    if (localStorage.getItem('is_syncing')) return;
+    setSyncError(null);
+    try {
+      const result = await remoteStorage.fetchUserData(code);
+      if (result.success) {
+        if (result.plan) {
+          setWorkouts(result.plan);
+          storage.saveWorkouts(result.plan);
+        }
+        if (result.name) {
+          setClientName(result.name);
+          localStorage.setItem('bear_gym_client_name', result.name);
+        }
+        if (result.history) {
+          Object.entries(result.history).forEach(([id, h]) => {
+            storage.saveHistory(id, h as any[]);
+          });
+        }
+        if (result.extras) {
+          storage.saveMeasurements(result.extras.measurements || []);
+          storage.saveCardioSessions(result.extras.cardio || []);
+        }
+        setIsReady(true);
+      } else {
+        const localWorkouts = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
+        if (localWorkouts) setIsReady(true);
+        else if (result.error?.includes("Nie znaleziono") || result.error?.includes("Nieprawidłowy")) {
+            setClientCode(null);
+            localStorage.removeItem('bear_gym_client_code');
+        } else {
+            setSyncError(result.error);
+        }
+      }
+    } catch (e) {
+      const localWorkouts = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
+      if (localWorkouts) setIsReady(true);
+      else setSyncError("Błąd ładowania danych.");
+    }
+  }, []);
+
+  useEffect(() => {
+    if (clientCode) initData(clientCode);
+    else setIsReady(true);
+  }, [clientCode, initData]);
+
+  const handleLogin = (code: string, userData: any) => {
+    localStorage.setItem('bear_gym_client_code', code);
+    setClientCode(code);
+    if (userData.name) {
+      setClientName(userData.name);
+      localStorage.setItem('bear_gym_client_name', userData.name);
+    }
+    setWorkouts(userData.plan || {});
+    storage.saveWorkouts(userData.plan || {});
+    setIsReady(true);
+  };
+
+  const syncData = async (type: 'history' | 'extras' | 'plan', data: any) => {
+    if (clientCode) {
+      let payload = data;
+      if (type === 'history') {
+        const allHistory: Record<string, any[]> = {};
+        const prefix = `${CLIENT_CONFIG.storageKey}_history_`;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(prefix)) {
+            const workoutId = key.replace(prefix, '');
+            try { allHistory[workoutId] = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+          }
+        }
+        payload = allHistory;
+      }
+      await remoteStorage.saveToCloud(clientCode, type, payload);
+    }
+  };
+
+  const updateSettings = (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    localStorageCache.save('app_settings', newSettings);
+  };
+
+  const updateWorkouts = (newWorkouts: WorkoutsMap) => {
+    setWorkouts(newWorkouts);
+    storage.saveWorkouts(newWorkouts);
+    syncData('plan', newWorkouts);
+  };
+
+  const updateLogo = (newLogo: string) => {
+    setLogo(newLogo);
+    localStorage.setItem('app_logo', newLogo);
+  };
+
+  return (
+    <AppContext.Provider value={{ 
+      clientCode, clientName, workouts, settings, updateSettings, updateWorkouts, logo, updateLogo, playAlarm, syncData,
+      workoutStartTime, setWorkoutStartTime, restTimer, startRestTimer, stopRestTimer
+    }}>
+      {/* InstallPrompt tutaj, aby był widoczny globalnie, nawet nad AuthView */}
+      <InstallPrompt />
+      
+      <HashRouter>
+        <ClientRouteGuard 
+          clientCode={clientCode} 
+          syncError={syncError} 
+          isReady={isReady} 
+          handleLogin={handleLogin}
+        >
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/workout/:id" element={<ActiveWorkout />} />
+            <Route path="/history" element={<HistoryView />} />
+            <Route path="/progress" element={<ProgressView />} />
+            <Route path="/measurements" element={<MeasurementsView />} />
+            <Route path="/cardio" element={<CardioView />} />
+            <Route path="/settings" element={<SettingsView />} />
+            <Route path="/coach-admin" element={<CoachDashboard />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </ClientRouteGuard>
+      </HashRouter>
+    </AppContext.Provider>
+  );
+}
