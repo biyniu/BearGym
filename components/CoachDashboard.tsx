@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useContext, useRef } from 'react';
 import { remoteStorage, parseDateStr, storage } from '../services/storage';
 import { Exercise, WarmupExercise, ExerciseType } from '../types';
 import { ActivityWidget } from './Dashboard';
@@ -38,7 +38,7 @@ export default function CoachDashboard() {
 
   const [activeTraining, setActiveTraining] = useState<{
     workoutId: string, 
-    results: { [exId: string]: { kg: string, reps: string }[] },
+    results: { [exId: string]: { kg: string, reps: string, time: string }[] },
     notes: { [exId: string]: string }
   } | null>(null);
 
@@ -431,18 +431,18 @@ export default function CoachDashboard() {
     setIsEditingPlan(true);
   };
 
-  const updateLiveResult = (exId: string, sIdx: number, field: 'kg' | 'reps', val: string) => {
+  const updateLiveResult = (exId: string, sIdx: number, field: 'kg' | 'reps' | 'time', val: string) => {
     if (!activeTraining) return;
     const updatedResults = { ...(activeTraining.results || {}) };
     if (!updatedResults[exId]) updatedResults[exId] = [];
-    if (!updatedResults[exId][sIdx]) updatedResults[exId][sIdx] = { kg: '', reps: '' };
+    if (!updatedResults[exId][sIdx]) updatedResults[exId][sIdx] = { kg: '', reps: '', time: '' };
     updatedResults[exId][sIdx] = { ...updatedResults[exId][sIdx], [field]: val };
     setActiveTraining({ ...(activeTraining as any), results: updatedResults });
   };
 
-  const toggleCoachSet = (exId: string, sIdx: number, rest: number) => {
+  const toggleCoachSet = (exId: string, setNum: number, rest: number) => {
     if (!selectedClient || !activeTraining) return;
-    const key = `${exId}_s${sIdx}`;
+    const key = `${exId}_s${setNum}`;
     const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
     const newState = !coachCompletedSets[key];
     
@@ -473,8 +473,26 @@ export default function CoachDashboard() {
     const d = new Date();
     const dateStr = `${d.getDate().toString().padStart(2,'0')}.${(d.getMonth()+1).toString().padStart(2,'0')}.${d.getFullYear()} (Trener: ${currentCoachName})`;
     const sessionResults: any = {};
+    
+    const currentPlan = selectedClient.plan[activeTraining.workoutId];
+
     Object.entries(activeTraining.results).forEach(([exId, sets]: any) => {
-        const formattedSets = sets.filter((s: any) => s.kg || s.reps).map((s: any) => `${s.kg || '0'}kg x ${s.reps || '0'}`);
+        const exConfig = currentPlan.exercises.find((e: any) => e.id === exId);
+        const type = (exConfig?.type || 'standard').toLowerCase();
+        const isRepsOnly = type === 'reps' || type === 'reps_only';
+        
+        const formattedSets = sets.map((s: any) => {
+            if (type === 'standard') {
+                if (s.kg && s.reps) return `${s.kg}kg x ${s.reps}`;
+                if (s.reps) return `${s.reps}p`;
+            } else if (isRepsOnly) {
+                if (s.reps) return `${s.reps}p`;
+            } else if (type === 'time') {
+                if (s.time) return `${s.time}s`;
+            }
+            return null;
+        }).filter(Boolean);
+
         if (formattedSets.length > 0) {
             let resStr = formattedSets.join(' | ');
             if (activeTraining.notes[exId]) {
@@ -483,6 +501,7 @@ export default function CoachDashboard() {
             sessionResults[exId] = resStr;
         }
     });
+
     const newEntry = { date: dateStr, timestamp: d.getTime(), results: sessionResults, workoutId: activeTraining.workoutId };
     const currentHistory = selectedClient.history?.[activeTraining.workoutId] || [];
     const updatedHistory = [newEntry, ...currentHistory];
@@ -490,6 +509,7 @@ export default function CoachDashboard() {
         ...(selectedClient.history || {}), 
         [activeTraining.workoutId]: updatedHistory 
     });
+
     if (success) {
         alert("Zapisano!");
         const prefix = `coach_comp_${selectedClient.code}_${activeTraining.workoutId}_`;
@@ -879,71 +899,94 @@ export default function CoachDashboard() {
                             </div>
 
                             <div className="space-y-6 md:space-y-8">
-                                {selectedClient.plan[activeTraining.workoutId].exercises.map((ex: any, exIdx: number) => (
-                                    <div key={ex.id} className="bg-black/40 p-4 md:p-8 rounded-3xl border border-gray-800 hover:border-gray-700 transition-all shadow-lg">
-                                        <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
-                                            <div>
-                                                <span className="text-red-500 font-black text-[10px] uppercase italic tracking-widest">Ćwiczenie {exIdx+1}</span>
-                                                <h4 className="text-lg md:text-2xl font-black text-white uppercase italic tracking-tight">{ex.name}</h4>
-                                                <p className="text-gray-500 text-[11px] md:text-xs italic">{ex.pl}</p>
+                                {selectedClient.plan[activeTraining.workoutId].exercises.map((ex: any, exIdx: number) => {
+                                    const exType = (ex.type || 'standard').toLowerCase();
+                                    const isRepsOnly = exType === 'reps' || exType === 'reps_only';
+                                    
+                                    return (
+                                        <div key={ex.id} className="bg-black/40 p-4 md:p-8 rounded-3xl border border-gray-800 hover:border-gray-700 transition-all shadow-lg">
+                                            <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-6">
+                                                <div>
+                                                    <span className="text-red-500 font-black text-[10px] uppercase italic tracking-widest">Ćwiczenie {exIdx+1}</span>
+                                                    <h4 className="text-lg md:text-2xl font-black text-white uppercase italic tracking-tight">{ex.name}</h4>
+                                                    <p className="text-gray-500 text-[11px] md:text-xs italic">{ex.pl}</p>
+                                                </div>
+                                                {ex.link && (
+                                                    <a href={ex.link} target="_blank" rel="noreferrer" className="text-red-600 hover:text-red-500 p-2 text-xl">
+                                                        <i className="fab fa-youtube"></i>
+                                                    </a>
+                                                )}
                                             </div>
-                                            {ex.link && (
-                                                <a href={ex.link} target="_blank" rel="noreferrer" className="text-red-600 hover:text-red-500 p-2 text-xl">
-                                                    <i className="fab fa-youtube"></i>
-                                                </a>
-                                            )}
-                                        </div>
 
-                                        <div className="grid grid-cols-4 gap-2 text-center mb-8 bg-black/50 p-3 rounded-xl border border-gray-800">
-                                            <div><div className="text-gray-600 text-[8px] uppercase font-black">Tempo</div><div className="text-blue-500 font-black text-xs">{ex.tempo}</div></div>
-                                            <div><div className="text-gray-600 text-[8px] uppercase font-black">RIR</div><div className="text-blue-500 font-black text-xs">{ex.rir}</div></div>
-                                            <div><div className="text-gray-600 text-[8px] uppercase font-black">Zakres</div><div className="text-green-500 font-black text-xs">{ex.reps}</div></div>
-                                            <div><div className="text-gray-600 text-[8px] uppercase font-black">Przerwa</div><div className="text-white font-black text-xs">{ex.rest}s</div></div>
-                                        </div>
+                                            <div className="grid grid-cols-4 gap-2 text-center mb-8 bg-black/50 p-3 rounded-xl border border-gray-800">
+                                                <div><div className="text-gray-600 text-[8px] uppercase font-black">Tempo</div><div className="text-blue-500 font-black text-xs">{ex.tempo}</div></div>
+                                                <div><div className="text-gray-600 text-[8px] uppercase font-black">RIR</div><div className="text-blue-500 font-black text-xs">{ex.rir}</div></div>
+                                                <div><div className="text-gray-600 text-[8px] uppercase font-black">Zakres</div><div className="text-green-500 font-black text-xs">{ex.reps}</div></div>
+                                                <div><div className="text-gray-600 text-[8px] uppercase font-black">Przerwa</div><div className="text-white font-black text-xs">{ex.rest}s</div></div>
+                                            </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 mb-6">
-                                            {Array.from({length: ex.sets}).map((_, sIdx) => {
-                                                const setNum = sIdx + 1;
-                                                const isDone = coachCompletedSets[`${ex.id}_s${setNum}`];
-                                                return (
-                                                    <div key={sIdx} className={`space-y-2 transition-opacity ${isDone ? 'opacity-40' : 'opacity-100'}`}>
-                                                        <span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest italic">Seria {setNum}</span>
-                                                        <div className="flex space-x-2">
-                                                            <input 
-                                                                placeholder="kg" 
-                                                                value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} 
-                                                                onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} 
-                                                                className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
-                                                            />
-                                                            <input 
-                                                                placeholder="p" 
-                                                                value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
-                                                                onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
-                                                                className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
-                                                            />
-                                                            <button 
-                                                                onClick={() => toggleCoachSet(ex.id, setNum, ex.rest)}
-                                                                className={`w-14 h-11 md:h-14 rounded-xl flex items-center justify-center transition-all border shrink-0 ${isDone ? 'bg-green-600 border-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-gray-800 border-gray-700 text-gray-600'}`}
-                                                            >
-                                                                <i className={`fas fa-check ${isDone ? 'scale-110' : 'scale-100'}`}></i>
-                                                            </button>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 mb-6">
+                                                {Array.from({length: ex.sets}).map((_, sIdx) => {
+                                                    const setNum = sIdx + 1;
+                                                    const isDone = coachCompletedSets[`${ex.id}_s${setNum}`];
+                                                    return (
+                                                        <div key={sIdx} className={`space-y-2 transition-opacity ${isDone ? 'opacity-40' : 'opacity-100'}`}>
+                                                            <span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest italic">Seria {setNum}</span>
+                                                            <div className="flex space-x-2">
+                                                                {exType === 'standard' && (
+                                                                    <>
+                                                                        <input 
+                                                                            placeholder="kg" 
+                                                                            value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} 
+                                                                            onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} 
+                                                                            className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                        />
+                                                                        <input 
+                                                                            placeholder="p" 
+                                                                            value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
+                                                                            onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
+                                                                            className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                        />
+                                                                    </>
+                                                                )}
+                                                                {isRepsOnly && (
+                                                                    <input 
+                                                                        placeholder="powt" 
+                                                                        value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
+                                                                        onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
+                                                                        className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                    />
+                                                                )}
+                                                                {exType === 'time' && (
+                                                                    <CoachStopwatch 
+                                                                        initialValue={activeTraining.results[ex.id]?.[sIdx]?.time || ''} 
+                                                                        onChange={(val) => updateLiveResult(ex.id, sIdx, 'time', val)} 
+                                                                    />
+                                                                )}
+                                                                <button 
+                                                                    onClick={() => toggleCoachSet(ex.id, setNum, ex.rest)}
+                                                                    className={`w-14 h-11 md:h-14 rounded-xl flex items-center justify-center transition-all border shrink-0 ${isDone ? 'bg-green-600 border-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-gray-800 border-gray-700 text-gray-600'}`}
+                                                                >
+                                                                    <i className={`fas fa-check ${isDone ? 'scale-110' : 'scale-100'}`}></i>
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                    );
+                                                })}
+                                            </div>
 
-                                        <div className="mt-6 pt-4 border-t border-gray-800/50">
-                                            <label className="text-[9px] font-black text-gray-600 uppercase italic tracking-widest ml-2 mb-2 block">Notatka do ćwiczenia</label>
-                                            <textarea 
-                                                value={activeTraining.notes[ex.id] || ''}
-                                                onChange={(e) => updateLiveNote(ex.id, e.target.value)}
-                                                placeholder="Np. Poprawić technikę, zwiększyć ciężar..."
-                                                className="w-full bg-black/30 border border-gray-800 rounded-xl p-3 text-xs text-gray-400 outline-none focus:border-red-600 transition min-h-[60px]"
-                                            />
+                                            <div className="mt-6 pt-4 border-t border-gray-800/50">
+                                                <label className="text-[9px] font-black text-gray-600 uppercase italic tracking-widest ml-2 mb-2 block">Notatka do ćwiczenia</label>
+                                                <textarea 
+                                                    value={activeTraining.notes[ex.id] || ''}
+                                                    onChange={(e) => updateLiveNote(ex.id, e.target.value)}
+                                                    placeholder="Np. Poprawić technikę, zwiększyć ciężar..."
+                                                    className="w-full bg-black/30 border border-gray-800 rounded-xl p-3 text-xs text-gray-400 outline-none focus:border-red-600 transition min-h-[60px]"
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             <button onClick={finishLiveTraining} className="w-full mt-10 bg-green-600 hover:bg-green-700 py-6 rounded-3xl font-black text-white text-base md:text-xl uppercase italic shadow-2xl transition transform active:scale-95 flex items-center justify-center">
@@ -1085,5 +1128,51 @@ function TabBtn({ active, onClick, label, icon, color = 'text-gray-500' }: any) 
       <i className={`fas ${icon} text-[10px] md:text-xs`}></i>
       <span>{label}</span>
     </button>
+  );
+}
+
+function CoachStopwatch({ initialValue, onChange }: { initialValue: string, onChange: (val: string) => void }) {
+  const [time, setTime] = useState<number>(parseInt(initialValue) || 0);
+  const [isRunning, setIsRunning] = useState(false);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const val = parseInt(initialValue) || 0;
+    if (val !== time && !isRunning) setTime(val);
+  }, [initialValue, isRunning, time]);
+
+  const toggle = () => {
+    if (isRunning) {
+      setIsRunning(false);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    } else {
+      setIsRunning(true);
+      intervalRef.current = window.setInterval(() => {
+        setTime(t => {
+          const nv = t + 1;
+          onChange(nv.toString());
+          return nv;
+        });
+      }, 1000);
+    }
+  };
+
+  return (
+    <div className="flex space-x-2 w-full">
+      <input 
+        type="number" 
+        value={time === 0 ? '' : time}
+        onChange={(e) => { 
+          const nv = parseInt(e.target.value) || 0;
+          setTime(nv); 
+          onChange(nv.toString()); 
+        }}
+        placeholder="sek" 
+        className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm outline-none" 
+      />
+      <button onClick={toggle} className={`w-12 rounded-xl flex items-center justify-center text-white transition-colors ${isRunning ? 'bg-red-600 animate-pulse' : 'bg-gray-800'}`}>
+        <i className={`fas ${isRunning ? 'fa-stop' : 'fa-stopwatch'}`}></i>
+      </button>
+    </div>
   );
 }

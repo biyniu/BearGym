@@ -6,7 +6,7 @@ import { CLIENT_CONFIG } from '../constants';
 import { Exercise, WorkoutPlan, ExerciseType } from '../types';
 
 export default function SettingsView() {
-  const { settings, updateSettings, playAlarm, workouts, updateWorkouts, clientCode, logo, logout } = useContext(AppContext);
+  const { settings, updateSettings, playAlarm, workouts, updateWorkouts, clientCode, logo, logout, syncData } = useContext(AppContext);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string>("");
   const [editingExerciseIdx, setEditingExerciseIdx] = useState<number | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -134,22 +134,63 @@ export default function SettingsView() {
       
       setConfirmModal({
           isOpen: true,
-          message: "UWAGA! Import zastąpi wszystkie obecne dane danymi z pliku. Czy kontynuować?",
+          message: "UWAGA! Import zastąpi wszystkie obecne dane w chmurze i na telefonie danymi z pliku. Czy kontynuować?",
           action: () => performImport(file)
       });
   };
 
-  const performImport = (file: File) => {
+  const performImport = async (file: File) => {
     setIsImporting(true);
     setConfirmModal(null);
     const reader = new FileReader();
     reader.onload = async (event) => {
         try {
             const data = JSON.parse(event.target?.result as string);
+            
+            // 1. Zapisujemy wszystko do localStorage
             Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
+
+            // 2. Pobieramy kluczowe dane do synchronizacji z chmurą
+            const importedWorkoutsRaw = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
+            const importedMeasurementsRaw = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_measurements`);
+            const importedCardioRaw = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_cardio`);
+            const importedClientCode = localStorage.getItem('bear_gym_client_code');
+
+            if (importedClientCode) {
+                // Konwertujemy stringi z powrotem na obiekty
+                const w = importedWorkoutsRaw ? JSON.parse(importedWorkoutsRaw) : {};
+                const m = importedMeasurementsRaw ? JSON.parse(importedMeasurementsRaw) : [];
+                const c = importedCardioRaw ? JSON.parse(importedCardioRaw) : [];
+
+                // 3. Wymuszamy synchronizację z Firebase, aby chmura "zauważyła" import
+                // Używamy bezpośrednio remoteStorage, aby mieć pewność zapisu przed przeładowaniem
+                await remoteStorage.saveToCloud(importedClientCode, 'plan', w);
+                
+                // Synchronizacja historii (App.tsx syncData zbiera wszystko z prefiksem historii)
+                // Musimy tu zasymulować to co robi App.syncData
+                const allHistory: Record<string, any[]> = {};
+                const prefix = `${CLIENT_CONFIG.storageKey}_history_`;
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith(prefix)) {
+                        const workoutId = key.replace(prefix, '');
+                        try { allHistory[workoutId] = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+                    }
+                }
+                await remoteStorage.saveToCloud(importedClientCode, 'history', allHistory);
+                
+                // Synchronizacja extras
+                await remoteStorage.saveToCloud(importedClientCode, 'extras', {
+                    measurements: m,
+                    cardio: c
+                });
+            }
+
+            // 4. Przeładowujemy aplikację
             window.location.reload();
         } catch(err) { 
-            alert("Błąd importu pliku."); 
+            console.error(err);
+            alert("Błąd importu pliku. Upewnij się, że plik jest poprawnym formatem JSON."); 
             setIsImporting(false);
         }
     };

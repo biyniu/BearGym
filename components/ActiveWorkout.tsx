@@ -99,7 +99,7 @@ export default function ActiveWorkout() {
     let hasData = false;
     workoutData.exercises.forEach(ex => {
       for(let i=1; i<=ex.sets; i++) {
-        if(storage.getTempInput(`input_${id}_${ex.id}_s${i}_kg`) || storage.getTempInput(`input_${id}_${ex.id}_s${i}_reps`)) hasData = true;
+        if(storage.getTempInput(`input_${id}_${ex.id}_s${i}_kg`) || storage.getTempInput(`input_${id}_${ex.id}_s${i}_reps`) || storage.getTempInput(`input_${id}_${ex.id}_s${i}_time`)) hasData = true;
       }
     });
 
@@ -410,6 +410,7 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
   };
 
   const effectiveType = (exercise.type || 'standard').toLowerCase();
+  const isRepsOnly = effectiveType === 'reps' || effectiveType === 'reps_only';
 
   return (
     <div className="bg-[#1e1e1e] rounded-xl shadow-md p-4">
@@ -446,8 +447,8 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
           return (
             <div key={setNum} className={`flex items-center py-2 space-x-2 border-b border-gray-800 last:border-0 transition-opacity ${isDone ? 'opacity-40' : 'opacity-100'}`}>
               <span className="text-gray-500 text-xs w-6 font-bold pt-1">S{setNum}</span>
-              <div className={`flex-grow grid ${(effectiveType === 'standard' || effectiveType === 'reps') ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                {(effectiveType === 'standard' || effectiveType === 'reps') && (
+              <div className={`flex-grow grid ${effectiveType === 'standard' ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                {effectiveType === 'standard' && (
                   <>
                      <SavedInput 
                         value={inputValues[`${uId}_kg`] || ''} 
@@ -461,7 +462,7 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
                       />
                   </>
                 )}
-                {effectiveType === 'reps_only' && (
+                {isRepsOnly && (
                   <SavedInput 
                     value={inputValues[`${uId}_reps`] || ''} 
                     onChange={(v) => handleInputChange(`${uId}_reps`, v)} 
@@ -471,7 +472,7 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
                 {effectiveType === 'time' && (
                   <Stopwatch 
                     id={`${uId}_time`} 
-                    initialValue={storage.getTempInput(`${uId}_time`)} 
+                    initialValue={inputValues[`${uId}_time`] || ''} 
                     onChange={(val) => handleInputChange(`${uId}_time`, val)} 
                   />
                 )}
@@ -515,6 +516,12 @@ const Stopwatch = ({ id, onChange, initialValue }: { id: string, onChange: (val:
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<number | null>(null);
 
+  // Sync internal state with external updates
+  useEffect(() => {
+    const val = parseInt(initialValue) || 0;
+    if (val !== time && !isRunning) setTime(val);
+  }, [initialValue, isRunning, time]);
+
   const toggle = () => {
     if (isRunning) {
       setIsRunning(false);
@@ -536,7 +543,11 @@ const Stopwatch = ({ id, onChange, initialValue }: { id: string, onChange: (val:
       <input 
         type="number" 
         value={time === 0 ? '' : time}
-        onChange={(e) => { setTime(parseInt(e.target.value) || 0); onChange(e.target.value); }}
+        onChange={(e) => { 
+          const nv = parseInt(e.target.value) || 0;
+          setTime(nv); 
+          onChange(nv.toString()); 
+        }}
         placeholder="sek" 
         className="bg-[#2d2d2d] border border-[#404040] text-white text-center w-full p-3 rounded text-lg font-bold outline-none" 
       />
