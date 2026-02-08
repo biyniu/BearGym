@@ -49,7 +49,7 @@ export default function Dashboard() {
             <i className="fas fa-camera text-white text-2xl"></i>
           </div>
         </div>
-        <h2 className="text-3xl font-black text-white tracking-tight uppercase text-center px-4 italic leading-none mb-2">{clientName || "TWÓJ TRENING"}</h2>
+        <h2 className="text-3xl font-black text-white tracking-tight uppercase italic leading-none mb-2">{clientName || "TWÓJ TRENING"}</h2>
         
         {coachName && (
           <div className="border border-red-600/50 bg-red-900/10 px-6 py-1 rounded-sm">
@@ -84,17 +84,15 @@ export default function Dashboard() {
           <button onClick={() => navigate('/progress')} className="bg-[#1e1e1e] rounded-xl shadow p-4 text-blue-400 hover:text-blue-300 flex flex-col items-center justify-center transition border border-transparent hover:border-blue-900"><i className="fas fa-chart-line mb-2 text-2xl"></i> <span className="text-xs font-bold uppercase tracking-tighter">Wykresy postępu</span></button>
         </div>
         <button onClick={() => navigate('/measurements')} className="w-full bg-[#1e1e1e] rounded-xl shadow p-4 text-green-400 hover:text-green-300 flex items-center justify-center transition border border-transparent hover:border-green-900"><i className="fas fa-ruler-combined text-2xl mr-3"></i><span className="font-black uppercase italic tracking-tighter">Pomiary Ciała</span></button>
-        <button onClick={() => navigate('/cardio')} className="w-full bg-[#1e1e1e] rounded-xl shadow p-4 text-red-400 hover:text-red-300 flex flex-col items-center justify-center transition border border-transparent hover:border-red-900 group">
+        <button onClick={() => navigate('/cardio')} className="w-full bg-[#1e1e1e] rounded-xl shadow p-4 hover:bg-[#252525] flex flex-col items-center justify-center transition border border-transparent hover:border-red-900 group">
           <div className="flex items-center justify-center space-x-3 mb-2">
-            <i className="fas fa-heartbeat text-2xl group-hover:scale-110 transition"></i>
-            <span className="text-gray-600">|</span>
-            <i className="fas fa-person-walking text-2xl text-green-500 group-hover:scale-110 transition"></i>
+            <i className="fas fa-heartbeat text-2xl text-green-500 group-hover:scale-110 transition"></i>
             <span className="text-gray-600">|</span>
             <i className="fas fa-universal-access text-2xl text-purple-500 group-hover:scale-110 transition"></i>
             <span className="text-gray-600">|</span>
             <i className="fas fa-hand-fist text-2xl text-sky-400 group-hover:scale-110 transition"></i>
           </div>
-          <span className="text-xs font-black uppercase italic tracking-tighter">Cardio | Spacer | Mobility | Fight</span>
+          <span className="text-xs font-black uppercase italic tracking-tighter text-red-600">Cardio | Mobility | Fight</span>
         </button>
       </div>
     </div>
@@ -196,7 +194,7 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
                                 const status = dayStatus[`${dStr}.${mStr}.${year}`];
                                 const activeTypes = [];
                                 if (status?.T) activeTypes.push({ color: 'bg-red-600', letter: 'T' });
-                                if (status?.C) activeTypes.push({ color: 'bg-red-500', letter: 'C' });
+                                if (status?.C) activeTypes.push({ color: 'bg-green-600', letter: 'C' });
                                 if (status?.S) activeTypes.push({ color: 'bg-green-500', letter: 'S' });
                                 if (status?.M) activeTypes.push({ color: 'bg-purple-600', letter: 'M' });
                                 if (status?.F) activeTypes.push({ color: 'bg-sky-400', letter: 'F' });
@@ -221,13 +219,13 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
                             <div className="space-y-6">
                                 <div className="flex justify-between items-end border-b border-gray-800 pb-3">
                                     <div className="flex-1 overflow-hidden">
-                                        <div className="text-[10px] text-red-500 font-black uppercase tracking-widest italic mb-1">Ostatnia Sesja</div>
+                                        <div className="text-[10px] text-green-500 font-black uppercase tracking-widest italic mb-1">Ostatnia Sesja</div>
                                         <div className="text-2xl font-black text-white italic uppercase truncate tracking-tighter leading-none">{lastSessionStats.title}</div>
                                     </div>
                                     <div className="text-right ml-3 shrink-0"><div className="text-[11px] text-gray-500 font-black uppercase tracking-tighter">{lastSessionStats.date}</div></div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <StatItem icon="fa-weight-hanging" label="Tonaż" value={lastSessionStats.totalWeight} unit="kg" color="text-red-500" />
+                                    <StatItem icon="fa-weight-hanging" label="Tonaż" value={lastSessionStats.totalWeight} unit="kg" color="text-green-500" />
                                     <StatItem icon="fa-dumbbell" label="Ćwiczenia" value={lastSessionStats.totalExercises} unit="" color="text-blue-500" />
                                     <StatItem icon="fa-redo" label="Powt." value={lastSessionStats.totalReps} unit="" color="text-green-500" />
                                     <StatItem icon="fa-stopwatch" label="Czas" value={lastSessionStats.duration} unit="" color="text-yellow-500" />

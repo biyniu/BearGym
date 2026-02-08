@@ -24,6 +24,8 @@ export const DEFAULT_SETTINGS = {
   volume: 0.5,
   soundType: 'double_bell' as const,
   autoRestTimer: true,
+  pushNotificationsEnabled: false,
+  wakeLockEnabled: true,
   userGoal: "",
   userDifficulties: "",
   targetWorkoutsPerWeek: 3,

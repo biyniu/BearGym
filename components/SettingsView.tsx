@@ -11,11 +11,32 @@ export default function SettingsView() {
   const [editingExerciseIdx, setEditingExerciseIdx] = useState<number | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState(window.Notification?.permission || 'default');
   
   // Custom Modals
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; action: () => void } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if ("Notification" in window) {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  const requestNotifPermission = async () => {
+    if (!("Notification" in window)) {
+      alert("Twoja przeglądarka nie obsługuje powiadomień.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+    if (permission === 'granted') {
+      updateSettings({ ...settings, pushNotificationsEnabled: true });
+    } else {
+      updateSettings({ ...settings, pushNotificationsEnabled: false });
+    }
+  };
 
   const updatePlanExercises = (workoutId: string, newExercises: Exercise[]) => {
     const newWorkouts = { ...workouts };
@@ -100,12 +121,7 @@ export default function SettingsView() {
     // USUWANIE HISTORII Z LOCAL STORAGE DLA TEGO TRENINGU
     localStorage.removeItem(`${CLIENT_CONFIG.storageKey}_history_${selectedWorkoutId}`);
     
-    // Wyzwalany jest syncData('plan') wewnątrz updateWorkouts
-    // oraz syncData('history') zostanie wywołany automatycznie przy następnej operacji, 
-    // ponieważ scrapuje on localStorage.
     updateWorkouts(newWorkouts);
-    
-    // Wymuszamy synchronizację czystej historii
     syncData('history', null);
 
     setSelectedWorkoutId("");
@@ -157,23 +173,18 @@ export default function SettingsView() {
     reader.onload = async (event) => {
         try {
             const data = JSON.parse(event.target?.result as string);
-            
-            // 1. Zapisujemy wszystko do localStorage
             Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
 
-            // 2. Pobieramy kluczowe dane do synchronizacji z chmurą
             const importedWorkoutsRaw = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_workouts`);
             const importedMeasurementsRaw = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_measurements`);
             const importedCardioRaw = localStorage.getItem(`${CLIENT_CONFIG.storageKey}_cardio`);
             const importedClientCode = localStorage.getItem('bear_gym_client_code');
 
             if (importedClientCode) {
-                // Konwertujemy stringi z powrotem na obiekty
                 const w = importedWorkoutsRaw ? JSON.parse(importedWorkoutsRaw) : {};
                 const m = importedMeasurementsRaw ? JSON.parse(importedMeasurementsRaw) : [];
                 const c = importedCardioRaw ? JSON.parse(importedCardioRaw) : [];
 
-                // 3. Wymuszamy synchronizację z Firebase, aby chmura "zauważyła" import
                 await remoteStorage.saveToCloud(importedClientCode, 'plan', w);
                 
                 const allHistory: Record<string, any[]> = {};
@@ -192,12 +203,10 @@ export default function SettingsView() {
                     cardio: c
                 });
             }
-
-            // 4. Przeładowujemy aplikację
             window.location.reload();
         } catch(err) { 
             console.error(err);
-            alert("Błąd importu pliku. Upewnij się, że plik jest poprawnym formatem JSON."); 
+            alert("Błąd importu pliku."); 
             setIsImporting(false);
         }
     };
@@ -278,7 +287,7 @@ export default function SettingsView() {
             </div>
 
             <div>
-                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Twoje Trudności / Słabości (np. słodycze, brak czasu):</label>
+                <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Twoje Trudności / Słabości:</label>
                 <textarea 
                     value={settings.userDifficulties || ''}
                     onChange={(e) => updateSettings({ ...settings, userDifficulties: e.target.value })}
@@ -323,31 +332,69 @@ export default function SettingsView() {
         <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
           <i className="fas fa-magic text-red-500 mr-2"></i>Automatyzacja i Dźwięki
         </h3>
-        <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-900 rounded-xl border border-gray-800">
-                <div>
-                <div className="text-[11px] font-black text-white uppercase italic tracking-widest">Automatyczna przerwa</div>
-                <div className="text-[9px] text-gray-500 font-bold uppercase">Stoper po odhaczeniu serii</div>
+        <div className="space-y-4">
+            <div className="p-3 bg-gray-900 rounded-xl border border-gray-800">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="text-[11px] font-black text-white uppercase italic tracking-widest">Automatyczna przerwa</div>
+                        <div className="text-[9px] text-gray-500 font-bold uppercase">Stoper po odhaczeniu serii</div>
+                    </div>
+                    <button 
+                        onClick={() => updateSettings({ ...settings, autoRestTimer: !settings.autoRestTimer })}
+                        className={`w-12 h-6 rounded-full transition-all relative shadow-inner shrink-0 ${settings.autoRestTimer ? 'bg-red-600' : 'bg-gray-700'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.autoRestTimer ? 'left-7' : 'left-1'}`}></div>
+                    </button>
                 </div>
-                <button 
-                onClick={() => updateSettings({ ...settings, autoRestTimer: !settings.autoRestTimer })}
-                className={`w-12 h-6 rounded-full transition-all relative shadow-inner ${settings.autoRestTimer ? 'bg-red-600' : 'bg-gray-700'}`}
-                >
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.autoRestTimer ? 'left-7' : 'left-1'}`}></div>
-                </button>
+            </div>
+
+            <div className="p-3 bg-gray-900 rounded-xl border border-gray-800">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="pr-4">
+                        <div className="text-[11px] font-black text-white uppercase italic tracking-widest">Powiadomienia Systemowe</div>
+                        <div className="text-[9px] text-gray-500 font-bold uppercase leading-tight mt-1">
+                            Powiadomienia pozwalają telefonowi "wybudzić" alarm, gdy telefon jest zablokowany lub w kieszeni. 
+                            <span className={`block mt-1 font-black ${notifPermission === 'granted' ? 'text-green-500' : notifPermission === 'denied' ? 'text-red-500' : 'text-yellow-500'}`}>
+                                Status: {notifPermission === 'granted' ? 'ZEZWOLONO' : notifPermission === 'denied' ? 'ZABLOKOWANO' : 'BRAK ZGODY'}
+                            </span>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={requestNotifPermission}
+                        className={`w-12 h-6 rounded-full transition-all relative shadow-inner shrink-0 ${settings.pushNotificationsEnabled ? 'bg-red-600' : 'bg-gray-700'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.pushNotificationsEnabled ? 'left-7' : 'left-1'}`}></div>
+                    </button>
+                </div>
+                {notifPermission === 'denied' && (
+                    <p className="text-[8px] text-red-400 mt-2 font-bold uppercase italic">* Musisz odblokować powiadomienia w ustawieniach przeglądarki (ikona kłódki przy adresie).</p>
+                )}
+            </div>
+
+            <div className="p-3 bg-gray-900 rounded-xl border border-gray-800">
+                <div className="flex items-center justify-between">
+                    <div className="pr-4">
+                        <div className="text-[11px] font-black text-white uppercase italic tracking-widest">Blokada wygaszania</div>
+                        <div className="text-[9px] text-gray-500 font-bold uppercase leading-tight mt-1">
+                            Zapobiega wyłączaniu ekranu podczas aktywnej przerwy. Dzięki temu dźwięk alarmu zadziała bez opóźnień.
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => updateSettings({ ...settings, wakeLockEnabled: !settings.wakeLockEnabled })}
+                        className={`w-12 h-6 rounded-full transition-all relative shadow-inner shrink-0 ${settings.wakeLockEnabled ? 'bg-red-600' : 'bg-gray-700'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.wakeLockEnabled ? 'left-7' : 'left-1'}`}></div>
+                    </button>
+                </div>
             </div>
 
             <div className="p-3 bg-gray-900 rounded-xl border border-gray-800">
                <div className="mb-2">
-                 <div>
-                    <div className="text-[11px] font-black text-white uppercase italic tracking-widest mb-2">Rodzaj Dźwięku</div>
-                 </div>
+                 <div className="text-[11px] font-black text-white uppercase italic tracking-widest mb-2">Rodzaj Dźwięku</div>
                  <div className="flex items-center space-x-2">
                     <select 
                         value={settings.soundType} 
-                        onChange={(e) => {
-                            updateSettings({ ...settings, soundType: e.target.value as any });
-                        }}
+                        onChange={(e) => updateSettings({ ...settings, soundType: e.target.value as any })}
                         className="flex-grow bg-black text-white text-[10px] font-bold p-2.5 rounded border border-gray-700 outline-none uppercase"
                     >
                         <option value="bell">1. Classic Bell</option>
@@ -376,9 +423,7 @@ export default function SettingsView() {
                     max="1" 
                     step="0.1" 
                     value={settings.volume !== undefined ? settings.volume : 0.5} 
-                    onChange={(e) => {
-                        updateSettings({ ...settings, volume: parseFloat(e.target.value) });
-                    }}
+                    onChange={(e) => updateSettings({ ...settings, volume: parseFloat(e.target.value) })}
                     onMouseUp={() => playAlarm()}
                     onTouchEnd={() => playAlarm()}
                     className="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-600"
@@ -391,7 +436,7 @@ export default function SettingsView() {
                 onClick={confirmProfileSave}
                 className="w-full mt-4 bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl shadow-lg transition transform active:scale-95 uppercase italic text-xs tracking-widest flex items-center justify-center"
             >
-                {saveStatus ? <><i className="fas fa-check mr-2"></i> {saveStatus}</> : "ZATWIERDŹ USTAWIENIA DŹWIĘKU"}
+                {saveStatus ? <><i className="fas fa-check mr-2"></i> {saveStatus}</> : "ZATWIERDŹ USTAWIENIA I POWIADOMIENIA"}
             </button>
         </div>
       </div>

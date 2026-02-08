@@ -695,7 +695,7 @@ export default function CoachDashboard() {
               </div>
               {coaches.map(c => (
                 <div key={c.id} className="group relative flex items-center">
-                  <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-500'}`}>
+                  <button onClick={() => handleSelectCoach(c.id)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedCoachId === c.id ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-800/50 text-gray-500'}`}>
                     <div className="flex flex-col">
                       <span className="font-bold text-[11px] uppercase italic leading-tight">{c.name}</span>
                       <span className="text-[8px] text-gray-600 font-bold uppercase tracking-widest">{c.id}</span>
@@ -703,7 +703,7 @@ export default function CoachDashboard() {
                   </button>
                   <div className="absolute right-2 opacity-0 group-hover:opacity-100 flex items-center space-x-1">
                     <button onClick={() => editCoachName(c.id, c.name)} className="text-blue-900 hover:text-blue-500 transition text-[10px] p-2"><i className="fas fa-pen"></i></button>
-                    <button onClick={() => confirmDeleteCoach(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
+                    <button onClick={() => confirmDeleteCoach(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash-alt"></i></button>
                   </div>
                 </div>
               ))}
@@ -718,7 +718,7 @@ export default function CoachDashboard() {
             </div>
             {filteredClients.map(c => (
               <div key={c.code} className="group relative flex items-center">
-                <button onClick={() => loadClientDetail(c.code)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedClient?.code === c.code ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-gray-800/50 text-gray-400'} ${c.status === 'inactive' ? 'opacity-40' : ''}`}>
+                <button onClick={() => loadClientDetail(c.code)} className={`flex-grow text-left p-3 rounded-xl transition mb-1 border ${selectedClient?.code === c.code ? 'bg-blue-600/10 border-blue-500 text-white' : 'bg-transparent border-transparent hover:bg-800/50 text-gray-400'} ${c.status === 'inactive' ? 'opacity-40' : ''}`}>
                   <div className="flex flex-col">
                     <div className="font-bold text-[9px] uppercase italic leading-tight">{c.name}</div>
                     <div className="text-[7px] text-gray-500 font-bold uppercase tracking-widest">KOD: {c.code}</div>
@@ -726,7 +726,7 @@ export default function CoachDashboard() {
                 </button>
                 <div className="absolute right-2 opacity-0 group-hover:opacity-100 flex items-center space-x-1">
                   <button onClick={() => editClientName(c.code, c.name)} className="text-blue-900 hover:text-blue-500 transition text-[10px] p-2"><i className="fas fa-pen"></i></button>
-                  <button onClick={() => confirmDeleteClient(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash"></i></button>
+                  <button onClick={() => confirmDeleteClient(c)} className="text-red-900 hover:text-red-500 transition text-[10px] p-2"><i className="fas fa-trash-alt"></i></button>
                 </div>
               </div>
             ))}
@@ -1250,30 +1250,43 @@ export default function CoachDashboard() {
             {modalType === 'coach-audio-settings' ? (
               <div className="space-y-6">
                 <h3 className="text-xl md:text-2xl font-black text-white italic uppercase mb-6 tracking-tight flex items-center">
-                    <i className="fas fa-cog text-blue-500 mr-3"></i> Ustawienia Dźwięku
+                    <i className="fas fa-cog text-blue-500 mr-3"></i> Ustawienia Prowadzenia
                 </h3>
                 
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 bg-black/50 rounded-2xl border border-gray-800">
                         <div>
-                            <div className="text-sm font-black text-white uppercase italic tracking-widest">Automatyczna przerwa</div>
-                            <div className="text-[10px] text-gray-500 font-bold uppercase">Stoper po odhaczeniu serii</div>
+                            <div className="text-xs font-black text-white uppercase italic tracking-widest">Automatyczna przerwa</div>
+                            <div className="text-[9px] text-gray-500 font-bold uppercase">Stoper po odhaczeniu serii</div>
                         </div>
                         <button 
                             onClick={() => updateSettings({ ...settings, autoRestTimer: !settings.autoRestTimer })}
-                            className={`w-12 h-6 rounded-full transition-all relative shadow-inner ${settings.autoRestTimer ? 'bg-red-600' : 'bg-gray-700'}`}
+                            className={`w-12 h-6 rounded-full transition-all relative shadow-inner shrink-0 ${settings.autoRestTimer ? 'bg-red-600' : 'bg-gray-700'}`}
                         >
                             <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.autoRestTimer ? 'left-7' : 'left-1'}`}></div>
                         </button>
                     </div>
 
+                    <div className="flex items-center justify-between p-4 bg-black/50 rounded-2xl border border-gray-800">
+                        <div>
+                            <div className="text-xs font-black text-white uppercase italic tracking-widest">Blokada wygaszania</div>
+                            <div className="text-[9px] text-gray-500 font-bold uppercase leading-tight mt-1">Zapobiega wyłączaniu ekranu podczas aktywnej przerwy.</div>
+                        </div>
+                        <button 
+                            onClick={() => updateSettings({ ...settings, wakeLockEnabled: !settings.wakeLockEnabled })}
+                            className={`w-12 h-6 rounded-full transition-all relative shadow-inner shrink-0 ${settings.wakeLockEnabled ? 'bg-red-600' : 'bg-gray-700'}`}
+                        >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.wakeLockEnabled ? 'left-7' : 'left-1'}`}></div>
+                        </button>
+                    </div>
+
                     <div className="p-4 bg-black/50 rounded-2xl border border-gray-800">
-                        <div className="text-sm font-black text-white uppercase italic tracking-widest mb-4">Rodzaj Dźwięku</div>
+                        <div className="text-xs font-black text-white uppercase italic tracking-widest mb-3">Rodzaj Dźwięku</div>
                         <div className="flex items-center space-x-3">
                             <select 
                                 value={settings.soundType} 
                                 onChange={(e) => updateSettings({ ...settings, soundType: e.target.value as any })}
-                                className="flex-grow bg-black text-white text-xs font-bold p-3 rounded-xl border border-gray-700 outline-none uppercase"
+                                className="flex-grow bg-black text-white text-[10px] font-bold p-3 rounded-xl border border-gray-700 outline-none uppercase"
                             >
                                 <option value="bell">1. Classic Bell</option>
                                 <option value="double_bell">2. Double Bell</option>
@@ -1294,7 +1307,7 @@ export default function CoachDashboard() {
                     </div>
 
                     <div className="p-4 bg-black/50 rounded-2xl border border-gray-800">
-                        <div className="text-sm font-black text-white uppercase italic tracking-widest mb-4">Głośność Alarmu</div>
+                        <div className="text-xs font-black text-white uppercase italic tracking-widest mb-3">Głośność Alarmu</div>
                         <div className="flex items-center space-x-4">
                             <i className="fas fa-volume-down text-gray-500 text-sm"></i>
                             <input 

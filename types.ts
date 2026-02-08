@@ -45,6 +45,8 @@ export interface AppSettings {
   volume: number;
   soundType: 'bell' | 'double_bell' | 'chord' | 'cosmic' | 'gong' | 'victory' | 'siren' | 'school_bell';
   autoRestTimer: boolean;
+  pushNotificationsEnabled: boolean;
+  wakeLockEnabled: boolean;
   // Usunięto pole vibration
   // Nowe pola profilowe
   userGoal?: string;
@@ -67,7 +69,7 @@ export interface BodyMeasurement {
   thigh: string;
 }
 
-export type CardioType = 'rowerek' | 'bieznia' | 'schody' | 'orbitrek' | 'mobility' | 'fight' | 'spacer';
+export type CardioType = 'rowerek' | 'bieznia' | 'schody' | 'orbitrek' | 'mobility' | 'fight' | 'spacer' | 'basen' | 'inne';
 
 export interface CardioSession {
   id: string;
@@ -76,4 +78,5 @@ export interface CardioSession {
   duration: string; // np. "30 min"
   steps?: string;   // np. "10000"
   notes?: string;
+  customName?: string;
 }

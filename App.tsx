@@ -52,7 +52,7 @@ const GlobalRestBanner = () => {
         onClick={() => stopRestTimer(false)} // Potwierdzenie przy kliknięciu
         className="pointer-events-auto bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.7)] border-2 border-red-400 px-10 py-4 rounded-3xl flex flex-col items-center justify-center animate-banner-pulse cursor-pointer transition-transform active:scale-95"
       >
-        <span className="text-[10px] font-black text-red-100 uppercase tracking-[0.2em] leading-none mb-1.5 drop-shadow-md">
+        <span className="text-[10px] font-black text-red-100 uppercase tracking-[0.2em] mb-1.5 drop-shadow-md">
           PRZERWA W TOKU
         </span>
         <div className="flex items-center space-x-3">
@@ -186,6 +186,7 @@ export default function App() {
     duration: 0 
   });
   const restIntervalRef = useRef<number | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
   const setWorkoutStartTime = (t: number | null) => {
     if (t) sessionStorage.setItem('workout_start_time', t.toString());
@@ -286,8 +287,25 @@ export default function App() {
     }
   }, [audioCtx]);
 
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator && settingsRef.current.wakeLockEnabled) {
+      try {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      } catch (err) {
+        console.error(`Wake Lock error: ${err}`);
+      }
+    }
+  };
+
+  const releaseWakeLock = async () => {
+    if (wakeLockRef.current) {
+      await wakeLockRef.current.release();
+      wakeLockRef.current = null;
+    }
+  };
+
   const triggerBackgroundNotification = useCallback(() => {
-    if ("Notification" in window && Notification.permission === "granted") {
+    if ("Notification" in window && Notification.permission === "granted" && settingsRef.current.pushNotificationsEnabled) {
         new Notification("BEAR GYM: KONIEC PRZERWY!", {
             body: "Wracaj do serii!",
             icon: logo || 'https://lh3.googleusercontent.com/u/0/d/1GZ-QR4EyK6Ho9czlpTocORhwiHW4FGnP',
@@ -308,6 +326,7 @@ export default function App() {
         } else {
             const remaining = Math.round((endTime - now) / 1000);
             setRestTimer(prev => ({ ...prev, timeLeft: remaining }));
+            if (settingsRef.current.wakeLockEnabled) requestWakeLock();
         }
     }
   }, [playAlarm]);
@@ -344,6 +363,7 @@ export default function App() {
     } else {
         if (restIntervalRef.current) clearInterval(restIntervalRef.current);
         restIntervalRef.current = null;
+        releaseWakeLock();
     }
     return () => { if(restIntervalRef.current) clearInterval(restIntervalRef.current); };
   }, [restTimer.timeLeft, playAlarm, triggerBackgroundNotification]);
@@ -368,6 +388,7 @@ export default function App() {
     const endTime = Date.now() + (duration * 1000);
     localStorage.setItem('rest_end_time', endTime.toString());
     setRestTimer({ timeLeft: duration, duration });
+    if (settingsRef.current.wakeLockEnabled) requestWakeLock();
   };
 
   const stopRestTimer = (force: boolean = true) => {
@@ -379,6 +400,7 @@ export default function App() {
     restIntervalRef.current = null;
     localStorage.removeItem('rest_end_time');
     setRestTimer({ timeLeft: null, duration: 0 });
+    releaseWakeLock();
   };
 
   const initData = useCallback(async (code: string) => {
