@@ -185,7 +185,7 @@ export default function App() {
     timeLeft: null, 
     duration: 0 
   });
-  const restIntervalRef = useRef<number | null>(null);
+  const workerRef = useRef<Worker | null>(null);
   const wakeLockRef = useRef<any>(null);
 
   const setWorkoutStartTime = (t: number | null) => {
@@ -290,7 +290,9 @@ export default function App() {
   const requestWakeLock = async () => {
     if ('wakeLock' in navigator && settingsRef.current.wakeLockEnabled) {
       try {
-        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        if (!wakeLockRef.current) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        }
       } catch (err) {
         console.error(`Wake Lock error: ${err}`);
       }
@@ -314,80 +316,79 @@ export default function App() {
     }
   }, [logo]);
 
-  // Synchronizacja Wall Clock (odporność na tło)
-  const syncTimer = useCallback(() => {
-    const savedEndTime = localStorage.getItem('rest_end_time');
-    if (savedEndTime) {
-        const endTime = parseInt(savedEndTime);
-        const now = Date.now();
-        if (now >= endTime) {
-            stopRestTimer(true);
-            playAlarm();
-        } else {
-            const remaining = Math.round((endTime - now) / 1000);
-            setRestTimer(prev => ({ ...prev, timeLeft: remaining }));
-            if (settingsRef.current.wakeLockEnabled) requestWakeLock();
-        }
-    }
-  }, [playAlarm]);
+  // INICJALIZACJA WORKERA DO ODLICZANIA W TLE
+  useEffect(() => {
+    const workerCode = `
+      let interval = null;
+      let endTime = null;
 
+      self.onmessage = (e) => {
+        if (e.data.type === 'START') {
+          endTime = e.data.endTime;
+          if (interval) clearInterval(interval);
+          interval = setInterval(() => {
+            const now = Date.now();
+            const timeLeft = Math.max(0, Math.round((endTime - now) / 1000));
+            self.postMessage({ type: 'TICK', timeLeft });
+            if (timeLeft <= 0) {
+              self.postMessage({ type: 'RING' });
+              clearInterval(interval);
+              interval = null;
+            }
+          }, 1000);
+        } else if (e.data.type === 'STOP') {
+          if (interval) clearInterval(interval);
+          interval = null;
+          endTime = null;
+        }
+      };
+    `;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
+
+    worker.onmessage = (e) => {
+      if (e.data.type === 'TICK') {
+        setRestTimer(prev => ({ ...prev, timeLeft: e.data.timeLeft }));
+      } else if (e.data.type === 'RING') {
+        setRestTimer({ timeLeft: null, duration: 0 });
+        localStorage.removeItem('rest_end_time');
+        playAlarm();
+        if (document.visibilityState !== 'visible') triggerBackgroundNotification();
+        releaseWakeLock();
+      }
+    };
+
+    workerRef.current = worker;
+    return () => worker.terminate();
+  }, [playAlarm, triggerBackgroundNotification]);
+
+  // Synchronizacja przy powrocie do aplikacji
   useEffect(() => {
     const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') syncTimer();
+      if (document.visibilityState === 'visible') {
+        const savedEndTime = localStorage.getItem('rest_end_time');
+        if (savedEndTime && workerRef.current) {
+          const endTime = parseInt(savedEndTime);
+          if (endTime > Date.now()) {
+            workerRef.current.postMessage({ type: 'START', endTime });
+          } else {
+            setRestTimer({ timeLeft: null, duration: 0 });
+            localStorage.removeItem('rest_end_time');
+          }
+        }
+      }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [syncTimer]);
-
-  useEffect(() => {
-    if (restTimer.timeLeft !== null) {
-        if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-        restIntervalRef.current = window.setInterval(() => {
-            const savedEndTime = localStorage.getItem('rest_end_time');
-            if (savedEndTime) {
-                const endTime = parseInt(savedEndTime);
-                const now = Date.now();
-                const timeLeft = Math.max(0, Math.round((endTime - now) / 1000));
-                
-                if (timeLeft <= 0) {
-                    stopRestTimer(true);
-                    playAlarm();
-                    if (document.visibilityState !== 'visible') triggerBackgroundNotification();
-                } else {
-                    setRestTimer(prev => ({ ...prev, timeLeft }));
-                }
-            } else {
-                stopRestTimer(true);
-            }
-        }, 1000);
-    } else {
-        if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-        restIntervalRef.current = null;
-        releaseWakeLock();
-    }
-    return () => { if(restIntervalRef.current) clearInterval(restIntervalRef.current); };
-  }, [restTimer.timeLeft, playAlarm, triggerBackgroundNotification]);
-
-  // Inicjalizacja przy przeładowaniu
-  useEffect(() => {
-    const savedEndTime = localStorage.getItem('rest_end_time');
-    if (savedEndTime) {
-        const endTime = parseInt(savedEndTime);
-        if (endTime > Date.now()) {
-            setRestTimer({ 
-                timeLeft: Math.round((endTime - Date.now()) / 1000), 
-                duration: 0 
-            });
-        } else {
-            localStorage.removeItem('rest_end_time');
-        }
-    }
   }, []);
 
   const startRestTimer = (duration: number) => {
     const endTime = Date.now() + (duration * 1000);
     localStorage.setItem('rest_end_time', endTime.toString());
     setRestTimer({ timeLeft: duration, duration });
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: 'START', endTime });
+    }
     if (settingsRef.current.wakeLockEnabled) requestWakeLock();
   };
 
@@ -396,8 +397,9 @@ export default function App() {
         const confirmEnd = window.confirm("Czy na pewno chcesz zakończyć przerwę przed czasem?");
         if (!confirmEnd) return;
     }
-    if (restIntervalRef.current) clearInterval(restIntervalRef.current);
-    restIntervalRef.current = null;
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: 'STOP' });
+    }
     localStorage.removeItem('rest_end_time');
     setRestTimer({ timeLeft: null, duration: 0 });
     releaseWakeLock();
