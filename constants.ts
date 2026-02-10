@@ -5,9 +5,9 @@ export const CLIENT_CONFIG = {
   geminiApiKey: process.env.API_KEY || "",
   geminiModel: "gemini-3-flash-preview",
   
-  // TWOJA KONFIGURACJA FIREBASE
+  // KONFIGURACJA FIREBASE POBIERANA ZE ZMIENNYCH ŚRODOWISKOWYCH
   firebaseConfig: {
-    apiKey: "AIzaSyCzXSN0TsNaBJbLBUh12KY9-6vxZ7TzC1U",
+    apiKey: process.env.FIREBASE_API_KEY || "",
     authDomain: "bear-gym.firebaseapp.com",
     projectId: "bear-gym",
     storageBucket: "bear-gym.firebasestorage.app",

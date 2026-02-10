@@ -629,7 +629,7 @@ export default function CoachDashboard() {
 
   if (!userRole) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#111] flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-[#161616] p-10 rounded-3xl border border-gray-800 shadow-2xl text-center animate-fade-in">
           <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-red-900/20"><i className="fas fa-user-shield text-3xl text-white"></i></div>
           <h1 className="text-2xl font-black text-white mb-2 italic uppercase">Bear Gym Admin</h1>
@@ -1059,27 +1059,27 @@ export default function CoachDashboard() {
                                                 <div><div className="text-gray-600 text-[8px] uppercase font-black">Przerwa</div><div className="text-white font-black text-xs">{ex.rest}s</div></div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 mb-6">
+                                            <div className="flex flex-col space-y-3 mb-6 max-w-xl">
                                                 {Array.from({length: ex.sets}).map((_, sIdx) => {
                                                     const setNum = sIdx + 1;
                                                     const isDone = coachCompletedSets[`${ex.id}_s${setNum}`];
                                                     return (
-                                                        <div key={sIdx} className={`space-y-2 transition-opacity ${isDone ? 'opacity-40' : 'opacity-100'}`}>
-                                                            <span className="text-[9px] font-black text-gray-700 uppercase ml-2 tracking-widest italic">Seria {setNum}</span>
-                                                            <div className="flex space-x-2">
+                                                        <div key={sIdx} className={`flex items-center space-x-3 transition-opacity ${isDone ? 'opacity-40' : 'opacity-100'}`}>
+                                                            <span className="text-[10px] font-black text-gray-700 uppercase w-10 shrink-0 italic">S{setNum}</span>
+                                                            <div className="flex-grow flex space-x-2">
                                                                 {exType === 'standard' && (
                                                                     <>
                                                                         <input 
                                                                             placeholder="kg" 
                                                                             value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} 
                                                                             onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} 
-                                                                            className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                            className="w-full max-w-[120px] bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
                                                                         />
                                                                         <input 
                                                                             placeholder="p" 
                                                                             value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
                                                                             onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
-                                                                            className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                            className="w-full max-w-[120px] bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
                                                                         />
                                                                     </>
                                                                 )}
@@ -1088,7 +1088,7 @@ export default function CoachDashboard() {
                                                                         placeholder="powt" 
                                                                         value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
                                                                         onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
-                                                                        className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                        className="w-full max-w-[120px] bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
                                                                     />
                                                                 )}
                                                                 {exType === 'time' && (
@@ -1097,13 +1097,13 @@ export default function CoachDashboard() {
                                                                         onChange={(val) => updateLiveResult(ex.id, sIdx, 'time', val)} 
                                                                     />
                                                                 )}
-                                                                <button 
-                                                                    onClick={() => toggleCoachSet(ex.id, setNum, ex.rest)}
-                                                                    className={`w-14 h-11 md:h-14 rounded-xl flex items-center justify-center transition-all border shrink-0 ${isDone ? 'bg-green-600 border-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-gray-800 border-gray-700 text-gray-600'}`}
-                                                                >
-                                                                    <i className={`fas fa-check ${isDone ? 'scale-110' : 'scale-100'}`}></i>
-                                                                </button>
                                                             </div>
+                                                            <button 
+                                                                onClick={() => toggleCoachSet(ex.id, setNum, ex.rest)}
+                                                                className={`w-14 h-11 md:h-14 rounded-xl flex items-center justify-center transition-all border shrink-0 ${isDone ? 'bg-green-600 border-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-gray-800 border-gray-700 text-gray-600'}`}
+                                                            >
+                                                                <i className={`fas fa-check ${isDone ? 'scale-110' : 'scale-100'}`}></i>
+                                                            </button>
                                                         </div>
                                                     );
                                                 })}
@@ -1281,7 +1281,7 @@ export default function CoachDashboard() {
                     </div>
 
                     <div className="p-4 bg-black/50 rounded-2xl border border-gray-800">
-                        <div className="text-xs font-black text-white uppercase italic tracking-widest mb-3">Rodzaj Dźwięku</div>
+                        <div className="text-xs font-black text-white uppercase italic tracking-widest mb-3">RodzÄ…dźwięku</div>
                         <div className="flex items-center space-x-3">
                             <select 
                                 value={settings.soundType} 
@@ -1415,7 +1415,7 @@ function CoachStopwatch({ initialValue, onChange }: { initialValue: string, onCh
   };
 
   return (
-    <div className="flex space-x-2 w-full">
+    <div className="flex space-x-2 w-full max-w-[200px]">
       <input 
         type="number" 
         value={time === 0 ? '' : time}
