@@ -190,7 +190,7 @@ export default function ActiveWorkout() {
       {showSuccessModal && <SuccessModal onClose={() => navigate('/')} />}
 
       <div className="flex flex-col mb-6 space-y-4">
-        <div className="flex justify-between items-center bg-gray-900/50 p-2 rounded-xl border border-gray-800">
+        <div className="flex justify-between items-center bg-gray-900/50 p-2 rounded-xl red-glow-border">
             <div className="flex items-center space-x-2">
                 <i className="fas fa-stopwatch text-red-500 animate-pulse"></i>
                 <span className="font-mono text-lg font-bold text-white">{formatTime(elapsedTime)}</span>
@@ -207,8 +207,8 @@ export default function ActiveWorkout() {
         </div>
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-xl shadow-md p-4 mb-8 border-l-4 border-yellow-500">
-        <h3 className="font-bold text-yellow-500 mb-2 uppercase text-sm">Rozgrzewka / Aktywacja</h3>
+      <div className="bg-[#1e1e1e] rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-4 mb-8 border-l-4 border-yellow-500 border-y border-r border-red-900/30">
+        <h3 className="font-bold text-yellow-500 mb-2 uppercase text-sm red-glow-text">Rozgrzewka / Aktywacja</h3>
         <ul className="space-y-2">
           {workoutData.warmup.map((item, idx) => (
             <li key={idx} className="flex justify-between text-sm items-center border-b border-gray-700 py-1 last:border-0">
@@ -413,7 +413,7 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
   const isRepsOnly = effectiveType === 'reps' || effectiveType === 'reps_only';
 
   return (
-    <div className="bg-[#1e1e1e] rounded-xl shadow-md p-4">
+    <div className="bg-[#1e1e1e] rounded-xl red-glow-box p-4">
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">
           <span className="text-red-500 font-bold text-xs uppercase">Ćwiczenie {index}</span>
@@ -490,7 +490,7 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
       <textarea 
         value={note}
         onChange={(e) => handleNoteChange(e.target.value)}
-        className="w-full mt-3 bg-[#2d2d2d] text-gray-300 text-xs p-2 rounded border border-gray-700 focus:border-red-500 outline-none transition-colors" 
+        className="w-full mt-3 bg-[#121212] text-gray-300 text-xs p-2 rounded border border-gray-700 focus:border-red-500 outline-none transition-colors" 
         placeholder="Stała notatka (zapisuje się na przyszłość)..." 
         rows={1} 
       />
@@ -506,7 +506,7 @@ const SavedInput: React.FC<{ value: string, onChange: (v: string) => void, place
       value={value} 
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder} 
-      className="bg-[#2d2d2d] border border-[#404040] text-white text-center w-full p-3 rounded text-lg font-bold focus:outline-none focus:border-red-500 transition-colors placeholder-gray-600" 
+      className="bg-[#121212] border border-[#404040] text-white text-center w-full p-3 rounded text-lg font-bold focus:outline-none focus:border-red-500 transition-colors placeholder-gray-600" 
     />
   );
 };
@@ -549,7 +549,7 @@ const Stopwatch = ({ id, onChange, initialValue }: { id: string, onChange: (val:
           onChange(nv.toString()); 
         }}
         placeholder="sek" 
-        className="bg-[#2d2d2d] border border-[#404040] text-white text-center w-full p-3 rounded text-lg font-bold outline-none" 
+        className="bg-[#121212] border border-[#404040] text-white text-center w-full p-3 rounded text-lg font-bold outline-none" 
       />
       <button onClick={toggle} className={`w-12 rounded flex items-center justify-center text-white transition-colors ${isRunning ? 'bg-red-600 animate-pulse' : 'bg-gray-700'}`}>
         <i className={`fas ${isRunning ? 'fa-stop' : 'fa-stopwatch'}`}></i>

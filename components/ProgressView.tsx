@@ -89,7 +89,7 @@ export default function ProgressView() {
             <select 
                 value={selectedWorkoutId} 
                 onChange={(e) => setSelectedWorkoutId(e.target.value)}
-                className="flex-grow bg-gray-800 text-white p-3 rounded-lg border border-gray-600 outline-none"
+                className="flex-grow bg-[#121212] text-white p-3 rounded-lg border border-gray-600 outline-none"
             >
                 {(Object.entries(workouts) as [string, WorkoutPlan][]).map(([id, data]) => (
                 <option key={id} value={id}>{data.title}</option>
@@ -113,7 +113,7 @@ export default function ProgressView() {
               const domainMin = Math.max(0, Math.floor(minVal * 0.8));
 
               return (
-                  <div key={ex.id} className="bg-[#1e1e1e] p-3 rounded-lg shadow-sm border border-gray-800">
+                  <div key={ex.id} className="bg-[#1e1e1e] p-3 rounded-lg red-glow-box">
                       <div className="flex justify-between items-center mb-1 border-b border-gray-700 pb-1">
                           <h3 className="font-bold text-white text-sm truncate max-w-[70%]">{ex.name}</h3>
                           <span className="text-xs font-bold text-blue-400">Max: {maxVal} kg</span>

@@ -118,8 +118,8 @@ export default function MeasurementsView() {
     <div className="animate-fade-in pb-10 relative">
       <h2 className="text-2xl font-bold text-white mb-6 text-center">Pomiary Ciała</h2>
 
-      <div className="bg-[#1e1e1e] rounded-xl shadow-md p-4 mb-6 border border-gray-800">
-        <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase">Nowy wpis</h3>
+      <div className="bg-[#1e1e1e] rounded-xl red-glow-box p-4 mb-6">
+        <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase red-glow-text">Nowy wpis</h3>
         <div className="grid grid-cols-2 gap-3 mb-3">
              <div className="col-span-2">
                 <label className="text-xs text-gray-500">Data</label>
@@ -127,28 +127,28 @@ export default function MeasurementsView() {
                     type="date" 
                     value={form.date} 
                     onChange={e => handleChange('date', e.target.value)}
-                    className="w-full bg-gray-800 text-white p-2 rounded border border-gray-600 focus:border-green-500 outline-none" 
+                    className="w-full bg-[#121212] text-white p-2 rounded border border-gray-600 focus:border-green-500 outline-none" 
                 />
              </div>
              <div>
                 <label className="text-xs text-gray-500">Waga (kg)</label>
-                <input type="number" value={form.weight} onChange={e => handleChange('weight', e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0.0" />
+                <input type="number" value={form.weight} onChange={e => handleChange('weight', e.target.value)} className="w-full bg-[#121212] text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0.0" />
              </div>
              <div>
                 <label className="text-xs text-gray-500">Pas (cm)</label>
-                <input type="number" value={form.waist} onChange={e => handleChange('waist', e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
+                <input type="number" value={form.waist} onChange={e => handleChange('waist', e.target.value)} className="w-full bg-[#121212] text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
              </div>
              <div>
                 <label className="text-xs text-gray-500">Klatka (cm)</label>
-                <input type="number" value={form.chest} onChange={e => handleChange('chest', e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
+                <input type="number" value={form.chest} onChange={e => handleChange('chest', e.target.value)} className="w-full bg-[#121212] text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
              </div>
              <div>
                 <label className="text-xs text-gray-500">Biceps (cm)</label>
-                <input type="number" value={form.biceps} onChange={e => handleChange('biceps', e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
+                <input type="number" value={form.biceps} onChange={e => handleChange('biceps', e.target.value)} className="w-full bg-[#121212] text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
              </div>
              <div className="col-span-2">
                 <label className="text-xs text-gray-500">Udo (cm)</label>
-                <input type="number" value={form.thigh} onChange={e => handleChange('thigh', e.target.value)} className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
+                <input type="number" value={form.thigh} onChange={e => handleChange('thigh', e.target.value)} className="w-full bg-[#121212] text-white p-2 rounded border border-gray-700 focus:border-green-500 outline-none" placeholder="0" />
              </div>
         </div>
         <button 
@@ -159,13 +159,13 @@ export default function MeasurementsView() {
         </button>
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-xl shadow-md p-4 mb-6 border border-gray-800">
+      <div className="bg-[#1e1e1e] rounded-xl red-glow-box p-4 mb-6">
          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-white">Wykres</h3>
+            <h3 className="font-bold text-white red-glow-text">Wykres</h3>
             <select 
                 value={selectedMetric} 
                 onChange={(e) => setSelectedMetric(e.target.value as keyof BodyMeasurement)}
-                className="bg-gray-800 text-white text-xs p-2 rounded border border-gray-600 outline-none"
+                className="bg-[#121212] text-white text-xs p-2 rounded border border-gray-600 outline-none"
             >
                 {Object.entries(metricLabels).map(([key, label]) => (
                     <option key={key} value={key}>{label}</option>
@@ -198,9 +198,9 @@ export default function MeasurementsView() {
          </div>
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-xl shadow-md overflow-hidden border border-gray-800">
+      <div className="bg-[#1e1e1e] rounded-xl red-glow-box overflow-hidden">
         <div className="bg-gray-800 p-3 border-b border-gray-700 flex justify-between items-center">
-            <span className="font-bold text-sm text-gray-300">Historia wpisów</span>
+            <span className="font-bold text-sm text-gray-300 red-glow-text">Historia wpisów</span>
             <span className="text-xs text-gray-500">{measurements.length} łącznie</span>
         </div>
         <div>

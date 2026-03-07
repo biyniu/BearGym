@@ -38,40 +38,80 @@ interface AppContextType {
 
 export const AppContext = React.createContext<AppContextType>({} as AppContextType);
 
+// Modal potwierdzenia zakończenia przerwy
+const RestConfirmationModal = ({ onConfirm, onCancel }: { onConfirm: () => void, onCancel: () => void }) => {
+  return (
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-fade-in">
+      <div className="bg-[#1e1e1e] border border-red-600/50 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up">
+        <div className="bg-red-900/20 p-4 border-b border-red-900/30 flex items-center justify-center">
+          <i className="fas fa-stopwatch text-red-500 text-3xl animate-pulse"></i>
+        </div>
+        <div className="p-6 text-center">
+          <h3 className="text-xl font-black text-white italic uppercase mb-2">Przerwać odliczanie?</h3>
+          <p className="text-gray-400 text-sm">Czy na pewno chcesz zakończyć przerwę przed czasem?</p>
+        </div>
+        <div className="flex border-t border-gray-800">
+          <button 
+            onClick={onCancel}
+            className="flex-1 py-4 text-gray-400 font-bold hover:bg-gray-800 transition text-xs uppercase"
+          >
+            Anuluj
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="flex-1 py-4 text-red-500 font-bold hover:bg-red-900/20 transition text-xs uppercase border-l border-gray-800"
+          >
+            Zakończ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Globalny pływający baner przerwy (widoczny wszędzie)
 const GlobalRestBanner = () => {
   const { restTimer, stopRestTimer } = useContext(AppContext);
+  const [showConfirm, setShowConfirm] = useState(false);
   
   if (restTimer.timeLeft === null) return null;
 
+  const handleStop = () => {
+    stopRestTimer(true);
+    setShowConfirm(false);
+  };
+
   return (
-    <div 
-      className="fixed top-0 left-0 right-0 z-[10000] flex justify-center p-3 animate-fade-in pointer-events-none"
-    >
+    <>
+      {showConfirm && <RestConfirmationModal onConfirm={handleStop} onCancel={() => setShowConfirm(false)} />}
       <div 
-        onClick={() => stopRestTimer(false)} // Potwierdzenie przy kliknięciu
-        className="pointer-events-auto bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.7)] border-2 border-red-400 px-10 py-4 rounded-3xl flex flex-col items-center justify-center animate-banner-pulse cursor-pointer transition-transform active:scale-95"
+        className="fixed top-0 left-0 right-0 z-[10000] flex justify-center p-3 animate-fade-in pointer-events-none"
       >
-        <span className="text-[10px] font-black text-red-100 uppercase tracking-[0.2em] mb-1.5 drop-shadow-md">
-          PRZERWA W TOKU
-        </span>
-        <div className="flex items-center space-x-3">
-          <i className="fas fa-stopwatch text-white text-2xl drop-shadow-lg"></i>
-          <span className="text-4xl font-black text-white font-mono leading-none tracking-tighter drop-shadow-lg">
-            {restTimer.timeLeft}s
+        <div 
+          onClick={() => setShowConfirm(true)} // Potwierdzenie przy kliknięciu
+          className="pointer-events-auto bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.7)] border-2 border-red-400 px-10 py-4 rounded-3xl flex flex-col items-center justify-center animate-banner-pulse cursor-pointer transition-transform active:scale-95"
+        >
+          <span className="text-[10px] font-black text-red-100 uppercase tracking-[0.2em] mb-1.5 drop-shadow-md">
+            PRZERWA W TOKU
           </span>
+          <div className="flex items-center space-x-3">
+            <i className="fas fa-stopwatch text-white text-2xl drop-shadow-lg"></i>
+            <span className="text-4xl font-black text-white font-mono leading-none tracking-tighter drop-shadow-lg">
+              {restTimer.timeLeft}s
+            </span>
+          </div>
         </div>
+        <style>{`
+          @keyframes banner-pulse {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.03); filter: brightness(1.2); }
+          }
+          .animate-banner-pulse {
+            animation: banner-pulse 0.8s ease-in-out infinite;
+          }
+        `}</style>
       </div>
-      <style>{`
-        @keyframes banner-pulse {
-          0%, 100% { transform: scale(1); filter: brightness(1); }
-          50% { transform: scale(1.03); filter: brightness(1.2); }
-        }
-        .animate-banner-pulse {
-          animation: banner-pulse 0.8s ease-in-out infinite;
-        }
-      `}</style>
-    </div>
+    </>
   );
 };
 
@@ -393,10 +433,6 @@ export default function App() {
   };
 
   const stopRestTimer = (force: boolean = true) => {
-    if (!force) {
-        const confirmEnd = window.confirm("Czy na pewno chcesz zakończyć przerwę przed czasem?");
-        if (!confirmEnd) return;
-    }
     if (workerRef.current) {
       workerRef.current.postMessage({ type: 'STOP' });
     }

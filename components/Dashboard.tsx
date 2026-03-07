@@ -64,9 +64,9 @@ export default function Dashboard() {
 
       <div className="grid gap-4 mb-6">
         {sortedWorkouts.map(([id, data]) => (
-          <button key={id} onClick={() => navigate(`/workout/${id}`)} className="bg-[#1e1e1e] rounded-xl shadow-md p-6 flex items-center justify-between border-l-4 border-red-500 hover:bg-gray-800 transition transform active:scale-95 group">
+          <button key={id} onClick={() => navigate(`/workout/${id}`)} className="bg-[#1e1e1e] rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-6 flex items-center justify-between border-l-4 border-red-500 border-y border-r border-red-900/30 hover:bg-gray-800 transition transform active:scale-95 group">
             <div className="text-left">
-              <h2 className="text-xl font-black text-white italic uppercase group-hover:text-red-400 transition-colors">{data.title}</h2>
+              <h2 className="text-xl font-black text-white italic uppercase group-hover:text-red-400 transition-colors red-glow-text">{data.title}</h2>
               <span className="text-gray-500 text-[10px] font-bold uppercase flex items-center mt-1"><i className="fas fa-clock mr-1 text-blue-500"></i> Ostatnio: {getLastDate(id)}</span>
             </div>
             <i className="fas fa-play text-gray-700 group-hover:text-red-500 transition-colors text-xl"></i>
@@ -80,11 +80,11 @@ export default function Dashboard() {
 
       <div className="grid gap-4">
         <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => navigate('/history')} className="bg-[#1e1e1e] rounded-xl shadow p-4 text-gray-400 hover:text-white flex flex-col items-center justify-center transition border border-transparent hover:border-gray-600"><i className="fas fa-history mb-2 text-2xl"></i> <span className="text-xs font-bold uppercase tracking-tighter">Pełna historia</span></button>
-          <button onClick={() => navigate('/progress')} className="bg-[#1e1e1e] rounded-xl shadow p-4 text-blue-400 hover:text-blue-300 flex flex-col items-center justify-center transition border border-transparent hover:border-blue-900"><i className="fas fa-chart-line mb-2 text-2xl"></i> <span className="text-xs font-bold uppercase tracking-tighter">Wykresy postępu</span></button>
+          <button onClick={() => navigate('/history')} className="bg-[#1e1e1e] rounded-xl red-glow-box p-4 text-gray-400 hover:text-white flex flex-col items-center justify-center transition hover:border-red-500/50"><i className="fas fa-history mb-2 text-2xl text-red-500/80"></i> <span className="text-xs font-bold uppercase tracking-tighter">Pełna historia</span></button>
+          <button onClick={() => navigate('/progress')} className="bg-[#1e1e1e] rounded-xl red-glow-box p-4 text-blue-400 hover:text-blue-300 flex flex-col items-center justify-center transition hover:border-blue-900"><i className="fas fa-chart-line mb-2 text-2xl"></i> <span className="text-xs font-bold uppercase tracking-tighter">Wykresy postępu</span></button>
         </div>
-        <button onClick={() => navigate('/measurements')} className="w-full bg-[#1e1e1e] rounded-xl shadow p-4 text-green-400 hover:text-green-300 flex items-center justify-center transition border border-transparent hover:border-green-900"><i className="fas fa-ruler-combined text-2xl mr-3"></i><span className="font-black uppercase italic tracking-tighter">Pomiary Ciała</span></button>
-        <button onClick={() => navigate('/cardio')} className="w-full bg-[#1e1e1e] rounded-xl shadow p-4 hover:bg-[#252525] flex flex-col items-center justify-center transition border border-transparent hover:border-red-900 group">
+        <button onClick={() => navigate('/measurements')} className="w-full bg-[#1e1e1e] rounded-xl red-glow-box p-4 text-green-400 hover:text-green-300 flex items-center justify-center transition hover:border-green-900"><i className="fas fa-ruler-combined text-2xl mr-3"></i><span className="font-black uppercase italic tracking-tighter">Pomiary Ciała</span></button>
+        <button onClick={() => navigate('/cardio')} className="w-full bg-[#1e1e1e] rounded-xl red-glow-box p-4 hover:bg-[#252525] flex flex-col items-center justify-center transition hover:border-red-900 group">
           <div className="flex items-center justify-center space-x-3 mb-2">
             <i className="fas fa-heartbeat text-2xl text-green-500 group-hover:scale-110 transition"></i>
             <span className="text-gray-600">|</span>
@@ -92,7 +92,7 @@ export default function Dashboard() {
             <span className="text-gray-600">|</span>
             <i className="fas fa-hand-fist text-2xl text-sky-400 group-hover:scale-110 transition"></i>
           </div>
-          <span className="text-xs font-black uppercase italic tracking-tighter text-red-600">Cardio | Mobility | Fight</span>
+          <span className="text-xs font-black uppercase italic tracking-tighter text-red-600 red-glow-text">Cardio | Mobility | Fight</span>
         </button>
       </div>
     </div>
@@ -165,7 +165,7 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
     for(let i=1; i<=daysInMonth; i++) days.push(i);
 
     return (
-        <div className="bg-[#1e1e1e] rounded-2xl shadow-xl p-6 border border-gray-800 relative overflow-hidden transition-all w-full max-w-[500px] mx-auto">
+        <div className="bg-[#1e1e1e] rounded-2xl red-glow-box p-6 relative overflow-hidden transition-all w-full max-w-[500px] mx-auto">
             <div className="flex justify-between items-center mb-6 border-b border-gray-700 pb-4 relative z-10">
                 <div className="flex space-x-4">
                     <button onClick={() => setViewMode('calendar')} className={`text-[12px] font-black uppercase tracking-widest transition-colors ${viewMode === 'calendar' ? 'text-red-500' : 'text-gray-500 hover:text-gray-300'}`}>Kalendarz</button>

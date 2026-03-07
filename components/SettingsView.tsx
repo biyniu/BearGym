@@ -234,8 +234,8 @@ export default function SettingsView() {
       <h2 className="text-2xl font-black text-white mb-6 text-center italic uppercase tracking-tighter">Ustawienia</h2>
 
       {/* SEKCJA PROFILU */}
-      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 mb-6 border-l-4 border-yellow-500">
-        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
+      <div className="bg-[#1e1e1e] rounded-2xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-5 mb-6 border-l-4 border-yellow-500 border-y border-r border-red-900/30">
+        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic red-glow-text">
           <i className="fas fa-user-circle text-yellow-500 mr-2"></i>Twój Profil i Cele
         </h3>
         <div className="space-y-4">
@@ -244,7 +244,7 @@ export default function SettingsView() {
                 <textarea 
                     value={settings.userGoal || ''}
                     onChange={(e) => updateSettings({ ...settings, userGoal: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-xs outline-none focus:border-yellow-500"
+                    className="w-full bg-[#121212] border border-gray-700 rounded-lg p-3 text-white text-xs outline-none focus:border-yellow-500"
                     placeholder="Opisz swój cel..."
                     rows={2}
                 />
@@ -259,7 +259,7 @@ export default function SettingsView() {
                         placeholder="kg"
                         value={settings.userInitialWeight || ''}
                         onChange={(e) => updateSettings({ ...settings, userInitialWeight: e.target.value })}
-                        className="w-full bg-black border border-gray-700 rounded-lg p-2 text-white text-center font-bold text-xs focus:border-yellow-500 outline-none"
+                        className="w-full bg-[#121212] border border-gray-700 rounded-lg p-2 text-white text-center font-bold text-xs focus:border-yellow-500 outline-none"
                     />
                 </div>
                 <div>
@@ -270,7 +270,7 @@ export default function SettingsView() {
                         placeholder="kg"
                         value={settings.userCurrentWeight || ''}
                         onChange={(e) => updateSettings({ ...settings, userCurrentWeight: e.target.value })}
-                        className="w-full bg-black border border-gray-700 rounded-lg p-2 text-yellow-400 text-center font-bold text-xs focus:border-yellow-500 outline-none"
+                        className="w-full bg-[#121212] border border-gray-700 rounded-lg p-2 text-yellow-400 text-center font-bold text-xs focus:border-yellow-500 outline-none"
                     />
                 </div>
                 <div>
@@ -281,7 +281,7 @@ export default function SettingsView() {
                         placeholder="kg"
                         value={settings.userTargetWeight || ''}
                         onChange={(e) => updateSettings({ ...settings, userTargetWeight: e.target.value })}
-                        className="w-full bg-black border border-gray-700 rounded-lg p-2 text-green-400 text-center font-bold text-xs focus:border-yellow-500 outline-none"
+                        className="w-full bg-[#121212] border border-gray-700 rounded-lg p-2 text-green-400 text-center font-bold text-xs focus:border-yellow-500 outline-none"
                     />
                 </div>
             </div>
@@ -291,7 +291,7 @@ export default function SettingsView() {
                 <textarea 
                     value={settings.userDifficulties || ''}
                     onChange={(e) => updateSettings({ ...settings, userDifficulties: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-xs outline-none focus:border-yellow-500"
+                    className="w-full bg-[#121212] border border-gray-700 rounded-lg p-3 text-white text-xs outline-none focus:border-yellow-500"
                     placeholder="Z czym masz największy problem?"
                     rows={2}
                 />
@@ -304,7 +304,7 @@ export default function SettingsView() {
                         value={settings.targetWorkoutsPerWeek ?? ''}
                         onChange={(e) => updateSettings({ ...settings, targetWorkoutsPerWeek: e.target.value === '' ? undefined : parseInt(e.target.value) })}
                         placeholder="3"
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-center font-bold focus:border-yellow-500 outline-none"
+                        className="w-full bg-[#121212] border border-gray-700 rounded-lg p-3 text-white text-center font-bold focus:border-yellow-500 outline-none"
                     />
                 </div>
                 <div>
@@ -314,7 +314,7 @@ export default function SettingsView() {
                         value={settings.targetCardioPerWeek ?? ''}
                         onChange={(e) => updateSettings({ ...settings, targetCardioPerWeek: e.target.value === '' ? undefined : parseInt(e.target.value) })}
                         placeholder="3"
-                        className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white text-center font-bold focus:border-yellow-500 outline-none"
+                        className="w-full bg-[#121212] border border-gray-700 rounded-lg p-3 text-white text-center font-bold focus:border-yellow-500 outline-none"
                     />
                 </div>
             </div>
@@ -328,8 +328,8 @@ export default function SettingsView() {
         </div>
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 mb-6 border-l-4 border-red-600">
-        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
+      <div className="bg-[#1e1e1e] rounded-2xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-5 mb-6 border-l-4 border-red-600 border-y border-r border-red-900/30">
+        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic red-glow-text">
           <i className="fas fa-magic text-red-500 mr-2"></i>Automatyzacja i Dźwięki
         </h3>
         <div className="space-y-4">
@@ -441,8 +441,8 @@ export default function SettingsView() {
         </div>
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 mb-6 border-l-4 border-blue-600">
-        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
+      <div className="bg-[#1e1e1e] rounded-2xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-5 mb-6 border-l-4 border-blue-600 border-y border-r border-red-900/30">
+        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic red-glow-text">
           <i className="fas fa-save text-blue-500 mr-2"></i>Kopia zapasowa
         </h3>
         <div className="grid grid-cols-2 gap-4">
@@ -462,9 +462,9 @@ export default function SettingsView() {
         <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportRequest} />
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 mb-6">
+      <div className="bg-[#1e1e1e] rounded-2xl red-glow-box p-5 mb-6">
         <div className="flex justify-between items-center mb-6">
-           <h3 className="text-sm font-black text-white flex items-center uppercase italic"><i className="fas fa-dumbbell text-red-500 mr-2"></i>Edytor Treningu</h3>
+           <h3 className="text-sm font-black text-white flex items-center uppercase italic red-glow-text"><i className="fas fa-dumbbell text-red-500 mr-2"></i>Edytor Treningu</h3>
            <button 
             onClick={handleAddWorkoutDay} 
             className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase italic transition flex items-center shadow-lg active:scale-95"
@@ -475,7 +475,7 @@ export default function SettingsView() {
         
         <div className="flex items-center space-x-2 mb-4">
           <select 
-            className="flex-grow bg-gray-900 text-white p-4 rounded-xl border border-gray-800 text-sm font-bold outline-none focus:border-red-500 transition-all italic" 
+            className="flex-grow bg-[#121212] text-white p-4 rounded-xl border border-gray-800 text-sm font-bold outline-none focus:border-red-500 transition-all italic" 
             value={selectedWorkoutId} 
             onChange={e => { setSelectedWorkoutId(e.target.value); setEditingExerciseIdx(null); }}
           >
@@ -526,8 +526,8 @@ export default function SettingsView() {
         )}
       </div>
 
-      <div className="bg-[#1e1e1e] rounded-2xl shadow-md p-5 border-l-4 border-gray-600">
-        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic">
+      <div className="bg-[#1e1e1e] rounded-2xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-5 mb-6 border-l-4 border-gray-600 border-y border-r border-red-900/30">
+        <h3 className="text-sm font-black text-white mb-4 flex items-center uppercase italic red-glow-text">
           <i className="fas fa-user-lock text-gray-500 mr-2"></i>Konto
         </h3>
         <button 
@@ -584,17 +584,17 @@ const ExerciseForm = ({ exercise, onSave, onCancel, onDelete }: { exercise: Exer
       <div className="space-y-4 text-xs font-bold">
         <div>
           <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Nazwa ćwiczenia</label>
-          <input type="text" value={formData.name} onChange={e => handleChange('name', e.target.value)} className="w-full bg-black border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-red-600 transition" />
+          <input type="text" value={formData.name} onChange={e => handleChange('name', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-red-600 transition" />
         </div>
         <div>
           <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Opis / Skos / Uwagi (PL)</label>
-          <input type="text" value={formData.pl} onChange={e => handleChange('pl', e.target.value)} className="w-full bg-black border border-gray-800 text-gray-400 p-3.5 rounded-xl outline-none focus:border-red-600 transition" />
+          <input type="text" value={formData.pl} onChange={e => handleChange('pl', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-gray-400 p-3.5 rounded-xl outline-none focus:border-red-600 transition" />
         </div>
         
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Logowanie</label>
-            <select value={formData.type} onChange={e => handleChange('type', e.target.value as ExerciseType)} className="w-full bg-black border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-red-600 transition font-bold uppercase">
+            <select value={formData.type} onChange={e => handleChange('type', e.target.value as ExerciseType)} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-red-600 transition font-bold uppercase">
               <option value="standard">KG + POWT</option>
               <option value="reps_only">TYLKO POWT</option>
               <option value="time">CZAS (SEK)</option>
@@ -602,35 +602,35 @@ const ExerciseForm = ({ exercise, onSave, onCancel, onDelete }: { exercise: Exer
           </div>
           <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Serie</label>
-            <input type="number" value={formData.sets} onChange={e => handleChange('sets', parseInt(e.target.value))} className="w-full bg-black border border-gray-800 text-white p-3.5 rounded-xl text-center" />
+            <input type="number" value={formData.sets} onChange={e => handleChange('sets', parseInt(e.target.value))} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl text-center" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Zakres powt.</label>
-            <input type="text" value={formData.reps} onChange={e => handleChange('reps', e.target.value)} className="w-full bg-black border border-gray-800 text-green-500 p-3.5 rounded-xl text-center" placeholder="8-10" />
+            <input type="text" value={formData.reps} onChange={e => handleChange('reps', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-green-500 p-3.5 rounded-xl text-center" placeholder="8-10" />
           </div>
           <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Przerwa (s)</label>
-            <input type="number" value={formData.rest} onChange={e => handleChange('rest', parseInt(e.target.value))} className="w-full bg-black border border-gray-800 text-white p-3.5 rounded-xl text-center" placeholder="90" />
+            <input type="number" value={formData.rest} onChange={e => handleChange('rest', parseInt(e.target.value))} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl text-center" placeholder="90" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Tempo</label>
-            <input type="text" value={formData.tempo} onChange={e => handleChange('tempo', e.target.value)} className="w-full bg-black border border-gray-800 text-blue-500 p-3.5 rounded-xl text-center" placeholder="2011" />
+            <input type="text" value={formData.tempo} onChange={e => handleChange('tempo', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-blue-500 p-3.5 rounded-xl text-center" placeholder="2011" />
           </div>
           <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">RIR</label>
-            <input type="text" value={formData.rir} onChange={e => handleChange('rir', e.target.value)} className="w-full bg-black border border-gray-800 text-red-500 p-3.5 rounded-xl text-center" placeholder="1" />
+            <input type="text" value={formData.rir} onChange={e => handleChange('rir', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-red-500 p-3.5 rounded-xl text-center" placeholder="1" />
           </div>
         </div>
 
         <div>
           <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Link YouTube</label>
-          <input type="text" value={formData.link} onChange={e => handleChange('link', e.target.value)} className="w-full bg-black border border-gray-800 text-blue-400 p-3.5 rounded-xl outline-none focus:border-red-600 transition" placeholder="https://..." />
+          <input type="text" value={formData.link} onChange={e => handleChange('link', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-blue-400 p-3.5 rounded-xl outline-none focus:border-red-600 transition" placeholder="https://..." />
         </div>
       </div>
       <div className="flex space-x-3 mt-8">

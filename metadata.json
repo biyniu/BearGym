@@ -1,5 +1,14 @@
 {
-  "name": " Bear Gym test firebase",
+  "name": "Bear Gym",
   "description": "A modern workout tracking application for strength training.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "autoplay",
+    "fullscreen",
+    "clipboard-write",
+    "clipboard-read",
+    "screen-wake-lock",
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
 }

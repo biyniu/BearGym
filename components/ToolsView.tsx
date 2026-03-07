@@ -58,7 +58,7 @@ function OneRepMaxCalc() {
                         type="number" 
                         value={weight} 
                         onChange={e => setWeight(e.target.value)}
-                        className="w-full bg-gray-900 text-white p-3 rounded border border-gray-700 text-xl font-bold focus:border-purple-500 outline-none"
+                        className="w-full bg-[#121212] text-white p-3 rounded border border-gray-700 text-xl font-bold focus:border-purple-500 outline-none"
                     />
                 </div>
                 <div>
@@ -67,7 +67,7 @@ function OneRepMaxCalc() {
                         type="number" 
                         value={reps} 
                         onChange={e => setReps(e.target.value)}
-                        className="w-full bg-gray-900 text-white p-3 rounded border border-gray-700 text-xl font-bold focus:border-purple-500 outline-none"
+                        className="w-full bg-[#121212] text-white p-3 rounded border border-gray-700 text-xl font-bold focus:border-purple-500 outline-none"
                     />
                 </div>
             </div>
@@ -151,7 +151,7 @@ function PlateLoaderCalc() {
                     value={targetWeight} 
                     onChange={e => setTargetWeight(e.target.value)}
                     placeholder="np. 100"
-                    className="w-full bg-gray-900 text-white p-3 rounded border border-gray-700 text-xl font-bold focus:border-indigo-500 outline-none mb-4"
+                    className="w-full bg-[#121212] text-white p-3 rounded border border-gray-700 text-xl font-bold focus:border-indigo-500 outline-none mb-4"
                 />
                 
                 <div className="flex items-center justify-between bg-gray-900 p-3 rounded border border-gray-700">

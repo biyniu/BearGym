@@ -206,12 +206,12 @@ export default function CardioView() {
       </div>
 
       {/* FORM SECTION */}
-      <div className={`bg-[#1e1e1e] rounded-xl shadow-md p-4 mb-6 border-l-4 ${activeTab === 'cardio' ? 'border-green-600' : activeTab === 'mobility' ? 'border-purple-600' : 'border-sky-500'}`}>
-        <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase">Dodaj sesję</h3>
+      <div className={`bg-[#1e1e1e] rounded-xl shadow-[0_0_15px_rgba(220,38,38,0.3)] p-4 mb-6 border-l-4 border-y border-r border-red-900/30 ${activeTab === 'cardio' ? 'border-l-green-600' : activeTab === 'mobility' ? 'border-l-purple-600' : 'border-l-sky-500'}`}>
+        <h3 className="text-sm font-bold text-gray-400 mb-4 uppercase red-glow-text">Dodaj sesję</h3>
         <div className="space-y-4">
             <div>
                 <label className="text-xs text-gray-500 block mb-1">Data</label>
-                <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg outline-none" />
+                <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})} className="w-full bg-[#121212] border border-gray-700 text-white p-3 rounded-lg outline-none" />
             </div>
 
             {activeTab === 'cardio' && (
@@ -233,25 +233,25 @@ export default function CardioView() {
             )}
 
             {form.type === 'inne' && activeTab === 'cardio' && (
-                <input type="text" placeholder="Nazwa aktywności..." value={form.customName} onChange={e => setForm({...form, customName: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg outline-none text-sm" />
+                <input type="text" placeholder="Nazwa aktywności..." value={form.customName} onChange={e => setForm({...form, customName: e.target.value})} className="w-full bg-[#121212] border border-gray-700 text-white p-3 rounded-lg outline-none text-sm" />
             )}
 
             <div className="flex space-x-3">
                 <div className="flex-1">
                     <label className="text-xs text-gray-500 block mb-1">Czas (np. 30 min)</label>
-                    <input type="text" value={form.duration} onChange={e => setForm({...form, duration: e.target.value})} placeholder="30 min" className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg outline-none text-sm" />
+                    <input type="text" value={form.duration} onChange={e => setForm({...form, duration: e.target.value})} placeholder="30 min" className="w-full bg-[#121212] border border-gray-700 text-white p-3 rounded-lg outline-none text-sm" />
                 </div>
                 {form.type === 'spacer' && activeTab === 'cardio' && (
                     <div className="flex-1">
                         <label className="text-xs text-gray-500 block mb-1">Kroki</label>
-                        <input type="number" value={form.steps} onChange={e => setForm({...form, steps: e.target.value})} placeholder="10000" className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg outline-none text-sm" />
+                        <input type="number" value={form.steps} onChange={e => setForm({...form, steps: e.target.value})} placeholder="10000" className="w-full bg-[#121212] border border-gray-700 text-white p-3 rounded-lg outline-none text-sm" />
                     </div>
                 )}
             </div>
 
             <div>
                 <label className="text-xs text-gray-500 block mb-1">Notatki (opcjonalnie)</label>
-                <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full bg-gray-900 border border-gray-700 text-white p-3 rounded-lg outline-none text-sm h-16" placeholder="Jak się czułeś?"></textarea>
+                <textarea value={form.notes} onChange={e => setForm({...form, notes: e.target.value})} className="w-full bg-[#121212] border border-gray-700 text-white p-3 rounded-lg outline-none text-sm h-16" placeholder="Jak się czułeś?"></textarea>
             </div>
 
             <button onClick={handleSave} className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-black uppercase italic shadow-lg transition active:scale-95">Zapisz aktywność</button>
@@ -273,7 +273,7 @@ export default function CardioView() {
                           const colorClass = session.type === 'mobility' ? 'text-purple-500' : session.type === 'fight' ? 'text-sky-400' : 'text-green-500';
                           
                           return (
-                              <div key={session.id} className="bg-[#1e1e1e] p-4 rounded-xl border border-gray-800 flex items-center justify-between group">
+                              <div key={session.id} className="bg-[#1e1e1e] p-4 rounded-xl red-glow-box flex items-center justify-between group">
                                   <div className="flex items-center space-x-4">
                                       <div className={`w-10 h-10 rounded-full bg-black flex items-center justify-center ${colorClass} border border-gray-800 shadow-inner`}>
                                           <i className={`fas ${icon}`}></i>

@@ -234,7 +234,7 @@ export default function AICoachWidget() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-[#161616] border border-gray-700 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[60vh] animate-fade-in-up ring-1 ring-white/10">
+        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-[#161616] red-glow-box rounded-2xl overflow-hidden flex flex-col max-h-[60vh] animate-fade-in-up">
             {/* Header */}
             <div className="bg-gradient-to-r from-red-700 to-red-900 p-4 flex justify-between items-center shadow-lg">
                 <div className="flex items-center space-x-3">
@@ -299,7 +299,7 @@ export default function AICoachWidget() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                     placeholder="Napisz do trenera..." 
-                    className="flex-grow bg-black/50 text-white text-sm p-3 rounded-xl border border-gray-700 outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/50 transition"
+                    className="flex-grow bg-[#121212] text-white text-sm p-3 rounded-xl border border-gray-700 outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600/50 transition"
                 />
                 <button 
                     onClick={handleSend}

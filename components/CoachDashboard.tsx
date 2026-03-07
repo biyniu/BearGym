@@ -630,10 +630,10 @@ export default function CoachDashboard() {
   if (!userRole) {
     return (
       <div className="min-h-screen bg-[#111] flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-[#161616] p-10 rounded-3xl border border-gray-800 shadow-2xl text-center animate-fade-in">
+        <div className="max-w-md w-full bg-[#161616] p-10 rounded-3xl red-glow-box shadow-2xl text-center animate-fade-in">
           <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-red-900/20"><i className="fas fa-user-shield text-3xl text-white"></i></div>
           <h1 className="text-2xl font-black text-white mb-2 italic uppercase">Bear Gym Admin</h1>
-          <input type="password" placeholder="KOD DOSTĘPU" value={authCode} onChange={(e) => setAuthCode(e.target.value.toUpperCase())} className="w-full bg-black border border-gray-700 text-white p-4 rounded-xl text-center mb-6 outline-none font-mono tracking-widest text-lg" />
+          <input type="password" placeholder="KOD DOSTĘPU" value={authCode} onChange={(e) => setAuthCode(e.target.value.toUpperCase())} className="w-full bg-[#121212] border border-gray-700 text-white p-4 rounded-xl text-center mb-6 outline-none font-mono tracking-widest text-lg" />
           <button onClick={handleLogin} className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-xl transition shadow-lg uppercase italic">{loading ? <i className="fas fa-spinner fa-spin"></i> : "ZALOGUJ"}</button>
         </div>
       </div>
@@ -682,7 +682,7 @@ export default function CoachDashboard() {
         <div className="p-4">
           <div className="relative group mb-4">
             <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 text-[10px] group-focus-within:text-red-500 transition-colors"></i>
-            <input type="text" placeholder="Szukaj podopiecznego..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-black border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" />
+            <input type="text" placeholder="Szukaj podopiecznego..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-[#121212] border border-gray-800 rounded-lg p-2.5 pl-9 text-[10px] text-white outline-none focus:border-red-600 transition" />
           </div>
           {userRole === 'super-admin' && <button onClick={handleShowAllClients} className="w-full bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-500 hover:text-white py-3 rounded-xl transition font-black text-[9px] uppercase italic mb-6 shadow-lg"><i className="fas fa-users mr-2"></i> Pokaż wszystkich</button>}
         </div>
@@ -791,7 +791,7 @@ export default function CoachDashboard() {
                    )}
                 </div>
                 {sortedPlanEntries.map(([wId, workout]: any, wIdx) => (
-                  <div key={wId} className="bg-[#161616] rounded-3xl border border-gray-800 p-5 md:p-8 shadow-2xl space-y-6 md:space-y-8 animate-fade-in relative">
+                  <div key={wId} className="bg-[#161616] rounded-3xl red-glow-box p-5 md:p-8 shadow-2xl space-y-6 md:space-y-8 animate-fade-in relative">
                     <div className="flex justify-between items-center border-b border-gray-800 pb-4 md:pb-6">
                         <div className="flex items-center space-x-3 md:space-x-4">
                             <div className="w-10 h-10 md:w-12 md:h-12 bg-red-600 rounded-xl flex items-center justify-center text-white text-lg md:text-xl shadow-lg"><i className="fas fa-calendar-alt"></i></div>
@@ -801,7 +801,7 @@ export default function CoachDashboard() {
                                     type="text" 
                                     value={workout.title} 
                                     onChange={(e) => updateWorkoutTitle(wId, e.target.value)} 
-                                    className="bg-black border border-gray-700 text-white px-3 py-1.5 rounded-lg font-black text-xl uppercase italic outline-none focus:border-red-600"
+                                    className="bg-[#121212] border border-gray-700 text-white px-3 py-1.5 rounded-lg font-black text-xl uppercase italic outline-none focus:border-red-600"
                                   />
                                 ) : (
                                   <h3 className="text-xl md:text-3xl font-black text-white italic uppercase tracking-tighter truncate max-w-[150px] md:max-w-none">{workout.title}</h3>
@@ -831,20 +831,20 @@ export default function CoachDashboard() {
                                           value={ex.name} 
                                           onChange={(e) => handleExerciseChange(wId, idx, 'name', e.target.value)} 
                                           placeholder="Nazwa" 
-                                          className="bg-black border border-gray-700 text-white p-2 rounded text-xs outline-none"
+                                          className="bg-[#121212] border border-gray-700 text-white p-2 rounded text-xs outline-none"
                                         />
                                         <input 
                                           type="text" 
                                           value={ex.pl} 
                                           onChange={(e) => handleExerciseChange(wId, idx, 'pl', e.target.value)} 
                                           placeholder="Opis/Notatka" 
-                                          className="bg-black border border-gray-700 text-gray-400 p-2 rounded text-xs outline-none"
+                                          className="bg-[#121212] border border-gray-700 text-gray-400 p-2 rounded text-xs outline-none"
                                         />
                                      </div>
                                      <div className="grid grid-cols-2 gap-4">
                                         <div className="flex flex-col">
                                           <label className="text-[8px] text-gray-600 uppercase mb-1">Typ Logowania</label>
-                                          <select value={ex.type || 'standard'} onChange={(e) => handleExerciseChange(wId, idx, 'type', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs outline-none">
+                                          <select value={ex.type || 'standard'} onChange={(e) => handleExerciseChange(wId, idx, 'type', e.target.value)} className="bg-[#121212] border border-gray-700 text-white p-1.5 rounded text-xs outline-none">
                                             <option value="standard">KG + POWT</option>
                                             <option value="reps_only">TYLKO POWT</option>
                                             <option value="time">CZAS (SEK)</option>
@@ -852,21 +852,21 @@ export default function CoachDashboard() {
                                         </div>
                                         <div className="flex flex-col">
                                           <label className="text-[8px] text-gray-600 uppercase mb-1">Serie</label>
-                                          <input type="number" value={ex.sets} onChange={(e) => handleExerciseChange(wId, idx, 'sets', parseInt(e.target.value))} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" />
+                                          <input type="number" value={ex.sets} onChange={(e) => handleExerciseChange(wId, idx, 'sets', parseInt(e.target.value))} className="bg-[#121212] border border-gray-700 text-white p-1.5 rounded text-xs text-center" />
                                         </div>
                                      </div>
                                      <div className="grid grid-cols-4 gap-2">
-                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Powt.</label><input type="text" value={ex.reps} onChange={(e) => handleExerciseChange(wId, idx, 'reps', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
-                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Tempo</label><input type="text" value={ex.tempo} onChange={(e) => handleExerciseChange(wId, idx, 'tempo', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
-                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">RIR</label><input type="text" value={ex.rir} onChange={(e) => handleExerciseChange(wId, idx, 'rir', e.target.value)} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
-                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Przerwa</label><input type="number" value={ex.rest} onChange={(e) => handleExerciseChange(wId, idx, 'rest', parseInt(e.target.value))} className="bg-black border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Powt.</label><input type="text" value={ex.reps} onChange={(e) => handleExerciseChange(wId, idx, 'reps', e.target.value)} className="bg-[#121212] border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Tempo</label><input type="text" value={ex.tempo} onChange={(e) => handleExerciseChange(wId, idx, 'tempo', e.target.value)} className="bg-[#121212] border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">RIR</label><input type="text" value={ex.rir} onChange={(e) => handleExerciseChange(wId, idx, 'rir', e.target.value)} className="bg-[#121212] border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
+                                        <div className="flex flex-col"><label className="text-[8px] text-gray-600 uppercase mb-1">Przerwa</label><input type="number" value={ex.rest} onChange={(e) => handleExerciseChange(wId, idx, 'rest', parseInt(e.target.value))} className="bg-[#121212] border border-gray-700 text-white p-1.5 rounded text-xs text-center" /></div>
                                      </div>
                                      <input 
                                        type="text" 
                                        value={ex.link || ''} 
                                        onChange={(e) => handleExerciseChange(wId, idx, 'link', e.target.value)} 
                                        placeholder="Link YouTube" 
-                                       className="w-full bg-black border border-gray-800 text-blue-400 p-2 rounded text-[10px] outline-none"
+                                       className="w-full bg-[#121212] border border-gray-800 text-blue-400 p-2 rounded text-[10px] outline-none"
                                      />
                                   </div>
                                 ) : (
@@ -932,7 +932,7 @@ export default function CoachDashboard() {
               <div className="space-y-6 md:space-y-10 animate-fade-in">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                     <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter">Analiza Postępów</h3>
-                    <select value={selectedChartWorkoutId} onChange={e => setSelectedChartWorkoutId(e.target.value)} className="w-full sm:w-auto bg-black border border-gray-800 text-white p-3 rounded-xl text-xs font-black uppercase italic outline-none">
+                    <select value={selectedChartWorkoutId} onChange={e => setSelectedChartWorkoutId(e.target.value)} className="w-full sm:w-auto bg-[#121212] border border-gray-800 text-white p-3 rounded-xl text-xs font-black uppercase italic outline-none">
                         {sortedPlanEntries.map(([id, w]: any) => (<option key={id} value={id}>{w.title}</option>))}
                     </select>
                 </div>
@@ -1073,13 +1073,13 @@ export default function CoachDashboard() {
                                                                             placeholder="kg" 
                                                                             value={activeTraining.results[ex.id]?.[sIdx]?.kg || ''} 
                                                                             onChange={(e) => updateLiveResult(ex.id, sIdx, 'kg', e.target.value)} 
-                                                                            className="w-full max-w-[120px] bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                            className="w-full max-w-[120px] bg-[#121212] border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
                                                                         />
                                                                         <input 
                                                                             placeholder="p" 
                                                                             value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
                                                                             onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
-                                                                            className="w-full max-w-[120px] bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                            className="w-full max-w-[120px] bg-[#121212] border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
                                                                         />
                                                                     </>
                                                                 )}
@@ -1088,7 +1088,7 @@ export default function CoachDashboard() {
                                                                         placeholder="powt" 
                                                                         value={activeTraining.results[ex.id]?.[sIdx]?.reps || ''} 
                                                                         onChange={(e) => updateLiveResult(ex.id, sIdx, 'reps', e.target.value)} 
-                                                                        className="w-full max-w-[120px] bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
+                                                                        className="w-full max-w-[120px] bg-[#121212] border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm focus:border-yellow-500 outline-none placeholder:text-gray-900 transition shadow-inner" 
                                                                     />
                                                                 )}
                                                                 {exType === 'time' && (
@@ -1115,7 +1115,7 @@ export default function CoachDashboard() {
                                                     value={activeTraining.notes[ex.id] || ''}
                                                     onChange={(e) => updateLiveNote(ex.id, e.target.value)}
                                                     placeholder="Np. Poprawić technikę, zwiększyć ciężar..."
-                                                    className="w-full bg-black/30 border border-gray-800 rounded-xl p-3 text-xs text-gray-400 outline-none focus:border-red-600 transition min-h-[60px]"
+                                                    className="w-full bg-[#121212] border border-gray-800 rounded-xl p-3 text-xs text-gray-400 outline-none focus:border-red-600 transition min-h-[60px]"
                                                 />
                                             </div>
                                         </div>
@@ -1226,7 +1226,7 @@ export default function CoachDashboard() {
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-[#161616] p-5 md:p-8 rounded-3xl border border-blue-500/20 shadow-2xl">
                   <h3 className="text-lg md:text-xl font-black text-white italic uppercase mb-4 md:mb-6 flex items-center"><i className="fas fa-user-tag text-blue-500 mr-3"></i>Prywatne Notatki</h3>
-                  <textarea value={selectedClient.coachNotes || ''} onChange={e => saveInfo(e.target.value)} placeholder="..." className="w-full h-64 md:h-96 bg-black border border-gray-800 rounded-2xl p-4 md:p-6 text-xs md:text-sm text-gray-300 outline-none focus:border-blue-500 transition leading-relaxed" />
+                  <textarea value={selectedClient.coachNotes || ''} onChange={e => saveInfo(e.target.value)} placeholder="..." className="w-full h-64 md:h-96 bg-[#121212] border border-gray-800 rounded-2xl p-4 md:p-6 text-xs md:text-sm text-gray-300 outline-none focus:border-blue-500 transition leading-relaxed" />
                 </div>
               </div>
             )}
@@ -1286,7 +1286,7 @@ export default function CoachDashboard() {
                             <select 
                                 value={settings.soundType} 
                                 onChange={(e) => updateSettings({ ...settings, soundType: e.target.value as any })}
-                                className="flex-grow bg-black text-white text-[10px] font-bold p-3 rounded-xl border border-gray-700 outline-none uppercase"
+                                className="flex-grow bg-[#121212] text-white text-[10px] font-bold p-3 rounded-xl border border-gray-700 outline-none uppercase"
                             >
                                 <option value="bell">1. Classic Bell</option>
                                 <option value="double_bell">2. Double Bell</option>
@@ -1337,8 +1337,8 @@ export default function CoachDashboard() {
               <>
                 <h3 className="text-xl md:text-2xl font-black text-white italic uppercase mb-6 md:mb-8 tracking-tight">{modalType === 'add-coach' ? 'Nowy Trener' : 'Nowy Klient'}</h3>
                 <div className="space-y-4 md:space-y-5">
-                  <input value={form.name} onChange={e => modalType === 'add-client' ? handleNameInput(e.target.value) : setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-black border border-gray-800 p-4 md:p-5 rounded-2xl outline-none text-white text-xs md:text-sm font-bold focus:border-red-600 transition" />
-                  <input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-black border border-gray-800 p-4 md:p-5 rounded-2xl outline-none text-white text-xs md:text-sm font-mono tracking-widest focus:border-red-600 transition" />
+                  <input value={form.name} onChange={e => modalType === 'add-client' ? handleNameInput(e.target.value) : setForm({...form, name: e.target.value})} placeholder="Imię i Nazwisko" className="w-full bg-[#121212] border border-gray-800 p-4 md:p-5 rounded-2xl outline-none text-white text-xs md:text-sm font-bold focus:border-red-600 transition" />
+                  <input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} placeholder="KOD / HASŁO" className="w-full bg-[#121212] border border-gray-800 p-4 md:p-5 rounded-2xl outline-none text-white text-xs md:text-sm font-mono tracking-widest focus:border-red-600 transition" />
                   <button onClick={async () => { setLoading(true); if(modalType === 'add-coach') await remoteStorage.createNewCoach(form.code, form.name); else await remoteStorage.createNewClient(form.code, form.name, userRole === 'super-admin' ? selectedCoachId! : authCode); setModalType(null); setForm({name:'', code:''}); await handleGlobalRefresh(); setLoading(false); }} className="w-full bg-red-600 hover:bg-red-700 py-4 md:py-5 rounded-2xl font-black uppercase italic text-white shadow-2xl transition transform active:scale-95 text-sm md:text-base">UTWÓRZ</button>
                 </div>
               </>
@@ -1347,7 +1347,7 @@ export default function CoachDashboard() {
                 <h3 className="text-xl md:text-2xl font-black text-white italic uppercase mb-2 tracking-tight">Import z Excela</h3>
                 <p className="text-[9px] md:text-[10px] text-gray-500 mb-6 uppercase">Zaznacz dane w Excelu i wklej poniżej.</p>
                 <div className="space-y-4">
-                    <textarea value={excelData} onChange={e => setExcelData(e.target.value)} placeholder="Wklej tutaj dane..." className="w-full h-48 md:h-64 bg-black border border-gray-800 p-4 rounded-xl text-[9px] md:text-[10px] text-gray-400 font-mono outline-none focus:border-purple-600 transition" />
+                    <textarea value={excelData} onChange={e => setExcelData(e.target.value)} placeholder="Wklej tutaj dane..." className="w-full h-48 md:h-64 bg-[#121212] border border-gray-800 p-4 rounded-xl text-[9px] md:text-[10px] text-gray-400 font-mono outline-none focus:border-purple-600 transition" />
                     <button onClick={handleExcelImport} className="w-full bg-purple-600 hover:bg-purple-700 py-3 md:py-4 rounded-xl font-black uppercase italic text-white shadow-2xl transition active:scale-95 text-xs md:text-sm">ZAIMPORTUJ</button>
                 </div>
               </div>
@@ -1357,7 +1357,7 @@ export default function CoachDashboard() {
                 <div className="space-y-4">
                   <select 
                     onChange={(e) => handleTransferClient(e.target.value)}
-                    className="w-full bg-black border border-gray-800 p-4 rounded-xl text-white outline-none focus:border-blue-600 uppercase font-bold italic text-xs"
+                    className="w-full bg-[#121212] border border-gray-800 p-4 rounded-xl text-white outline-none focus:border-blue-600 uppercase font-bold italic text-xs"
                     defaultValue=""
                   >
                     <option value="" disabled>-- WYBIERZ TRENERA --</option>
@@ -1425,7 +1425,7 @@ function CoachStopwatch({ initialValue, onChange }: { initialValue: string, onCh
           onChange(nv.toString()); 
         }}
         placeholder="sek" 
-        className="w-full bg-black border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm outline-none" 
+        className="w-full bg-[#121212] border border-gray-800 text-white p-3 md:p-4 rounded-xl text-center font-black text-sm outline-none" 
       />
       <button onClick={toggle} className={`w-12 rounded-xl flex items-center justify-center text-white transition-colors ${isRunning ? 'bg-red-600 animate-pulse' : 'bg-gray-800'}`}>
         <i className={`fas ${isRunning ? 'fa-stop' : 'fa-stopwatch'}`}></i>

@@ -196,7 +196,7 @@ export default function HistoryView() {
                  const isEditing = editingDateId === uniqueId;
 
                  return (
-                   <div key={uniqueId} className="bg-[#1e1e1e] rounded-xl overflow-hidden shadow border border-gray-800 select-none">
+                   <div key={uniqueId} className="bg-[#1e1e1e] rounded-xl overflow-hidden shadow border border-gray-800 select-none red-glow-box">
                      <div 
                         className="w-full p-4 flex justify-between items-center bg-gray-800 active:bg-gray-700 transition-colors cursor-pointer"
                         onContextMenu={(e) => e.preventDefault()} // Blokada menu przeglądarki
@@ -214,7 +214,7 @@ export default function HistoryView() {
                                     type="text" 
                                     value={editDateValue} 
                                     onChange={(e) => setEditDateValue(e.target.value)}
-                                    className="bg-gray-900 text-white border border-gray-600 rounded px-2 py-1 text-sm w-full outline-none focus:border-blue-500"
+                                    className="bg-[#121212] text-white border border-gray-600 rounded px-2 py-1 text-sm w-full outline-none focus:border-blue-500"
                                 />
                                 <button onClick={() => saveDate(wId, idx)} className="text-green-500 p-1"><i className="fas fa-check"></i></button>
                                 <button onClick={() => setEditingDateId(null)} className="text-gray-400 p-1"><i className="fas fa-times"></i></button>
@@ -295,7 +295,7 @@ export default function HistoryView() {
             onClick={() => setOptionsSession(null)}
           >
               <div 
-                className="bg-[#1e1e1e] rounded-xl w-full max-w-xs p-6 shadow-2xl border border-gray-600 flex flex-col space-y-3"
+                className="bg-[#1e1e1e] rounded-xl w-full max-w-xs p-6 red-glow-box flex flex-col space-y-3"
                 onClick={(e) => e.stopPropagation()}
               >
                   <h3 className="text-white font-bold text-center mb-2">{optionsSession.date}</h3>
@@ -327,7 +327,7 @@ export default function HistoryView() {
       {/* MODAL DODAWANIA RĘCZNEGO */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4 overflow-y-auto">
-            <div className="bg-[#1e1e1e] rounded-xl w-full max-w-lg shadow-2xl border border-gray-700 max-h-[90vh] flex flex-col">
+            <div className="bg-[#1e1e1e] rounded-xl w-full max-w-lg red-glow-box max-h-[90vh] flex flex-col">
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#1e1e1e] z-10 rounded-t-xl">
                     <h3 className="text-white font-bold">Dodaj trening ręcznie</h3>
                     <button onClick={() => setIsAddModalOpen(false)} className="text-gray-400 hover:text-white">
@@ -341,7 +341,7 @@ export default function HistoryView() {
                         <select 
                             value={manualForm.workoutId} 
                             onChange={(e) => setManualForm(prev => ({ ...prev, workoutId: e.target.value, results: {} }))}
-                            className="w-full bg-gray-800 text-white p-3 rounded border border-gray-600 outline-none"
+                            className="w-full bg-[#121212] text-white p-3 rounded border border-gray-600 outline-none"
                         >
                             {workoutIds.map(id => (
                                 <option key={id} value={id}>{workouts[id].title}</option>
@@ -355,7 +355,7 @@ export default function HistoryView() {
                             type="datetime-local" 
                             value={manualForm.date}
                             onChange={(e) => setManualForm(prev => ({ ...prev, date: e.target.value }))}
-                            className="w-full bg-gray-800 text-white p-3 rounded border border-gray-600 outline-none"
+                            className="w-full bg-[#121212] text-white p-3 rounded border border-gray-600 outline-none"
                         />
                     </div>
 
@@ -368,7 +368,7 @@ export default function HistoryView() {
                                 placeholder="np. 100kg x 5 | 100kg x 5"
                                 value={manualForm.results[ex.id] || ""}
                                 onChange={(e) => handleManualResultChange(ex.id, e.target.value)}
-                                className="w-full bg-gray-900 text-white p-2 rounded border border-gray-700 text-sm focus:border-green-500 outline-none"
+                                className="w-full bg-[#121212] text-white p-2 rounded border border-gray-700 text-sm focus:border-green-500 outline-none"
                             />
                         </div>
                     ))}

@@ -41,7 +41,7 @@ export default function AuthView({ onLogin }: AuthViewProps) {
         <i className="fas fa-lock text-white text-4xl"></i>
       </div>
       
-      <div className="w-full max-w-sm bg-[#1e1e1e] p-8 rounded-2xl border border-gray-800 shadow-2xl text-center">
+      <div className="w-full max-w-sm bg-[#1e1e1e] p-8 rounded-2xl red-glow-box shadow-2xl text-center">
         <h1 className="text-3xl font-black text-white mb-2 tracking-tighter italic">BEAR GYM</h1>
         <p className="text-gray-500 text-sm mb-8 uppercase tracking-widest font-bold">Wpisz swój kod klienta</p>
 
@@ -51,7 +51,7 @@ export default function AuthView({ onLogin }: AuthViewProps) {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="KOD KLIENTA"
-            className="w-full bg-gray-900 border border-gray-700 text-white p-4 rounded-xl text-center font-bold tracking-widest focus:border-red-600 outline-none uppercase transition"
+            className="w-full bg-[#121212] border border-gray-700 text-white p-4 rounded-xl text-center font-bold tracking-widest focus:border-red-600 outline-none uppercase transition"
             disabled={loading}
           />
 
