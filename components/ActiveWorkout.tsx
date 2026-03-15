@@ -428,9 +428,9 @@ const ExerciseCard = React.memo(({ exercise, workoutId, index }: { exercise: Exe
       </div>
 
       <div className="grid grid-cols-4 gap-1 text-[10px] text-center mb-4 bg-black bg-opacity-20 p-2 rounded">
+        <div><div className="text-gray-500 uppercase">Zakres</div><div className="text-green-400 font-mono">{exercise.reps}</div></div>
         <div><div className="text-gray-500 uppercase">Tempo</div><div className="text-blue-400 font-mono">{exercise.tempo}</div></div>
         <div><div className="text-gray-500 uppercase">Rir</div><div className="text-blue-400 font-mono">{exercise.rir}</div></div>
-        <div><div className="text-gray-500 uppercase">Zakres</div><div className="text-green-400 font-mono">{exercise.reps}</div></div>
         <div><div className="text-gray-500 uppercase">Przerwa</div><div className="text-white font-mono">{exercise.rest}s</div></div>
       </div>
 

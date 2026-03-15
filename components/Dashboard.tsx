@@ -28,7 +28,9 @@ export default function Dashboard() {
 
   // Sortowanie treningów według displayOrder
   const sortedWorkouts = useMemo(() => {
-    return (Object.entries(workouts) as [string, WorkoutPlan][]).sort((a, b) => {
+    return (Object.entries(workouts) as [string, WorkoutPlan][])
+      .filter(([_, data]) => data != null)
+      .sort((a, b) => {
         const orderA = (a[1] as any).displayOrder ?? 0;
         const orderB = (b[1] as any).displayOrder ?? 0;
         return orderA - orderB;

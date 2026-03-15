@@ -343,7 +343,7 @@ export default function HistoryView() {
                             onChange={(e) => setManualForm(prev => ({ ...prev, workoutId: e.target.value, results: {} }))}
                             className="w-full bg-[#121212] text-white p-3 rounded border border-gray-600 outline-none"
                         >
-                            {workoutIds.map(id => (
+                            {workoutIds.filter(id => workouts[id] != null).map(id => (
                                 <option key={id} value={id}>{workouts[id].title}</option>
                             ))}
                         </select>

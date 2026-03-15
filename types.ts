@@ -47,6 +47,7 @@ export interface AppSettings {
   autoRestTimer: boolean;
   pushNotificationsEnabled: boolean;
   wakeLockEnabled: boolean;
+  showAiCoach?: boolean;
   // Usunięto pole vibration
   // Nowe pola profilowe
   userGoal?: string;

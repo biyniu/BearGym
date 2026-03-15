@@ -91,7 +91,7 @@ export default function ProgressView() {
                 onChange={(e) => setSelectedWorkoutId(e.target.value)}
                 className="flex-grow bg-[#121212] text-white p-3 rounded-lg border border-gray-600 outline-none"
             >
-                {(Object.entries(workouts) as [string, WorkoutPlan][]).map(([id, data]) => (
+                {(Object.entries(workouts) as [string, WorkoutPlan][]).filter(([_, data]) => data != null).map(([id, data]) => (
                 <option key={id} value={id}>{data.title}</option>
                 ))}
             </select>
@@ -138,7 +138,7 @@ export default function ProgressView() {
       <div className="absolute top-0 left-[-9999px]">
         <div ref={reportRef} className="w-[210mm] bg-[#121212] text-white font-sans p-8">
             <h1 className="text-3xl font-bold border-b-4 border-red-600 pb-4 mb-8">BEAR GYM - RAPORT POSTĘPÓW</h1>
-            {(Object.entries(workouts) as [string, WorkoutPlan][]).map(([wId, plan]) => {
+            {(Object.entries(workouts) as [string, WorkoutPlan][]).filter(([_, plan]) => plan != null).map(([wId, plan]) => {
                 const hasData = plan.exercises.some(ex => getExerciseData(wId, ex.id).length >= 1);
                 if (!hasData) return null;
                 return (

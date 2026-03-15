@@ -220,6 +220,10 @@ export default function AICoachWidget() {
     });
   };
 
+  if (settings.showAiCoach === false) {
+    return null;
+  }
+
   return (
     <>
       {/* Floating Button */}

@@ -9,6 +9,7 @@ export default function SettingsView() {
   const { settings, updateSettings, playAlarm, workouts, updateWorkouts, clientCode, logo, logout, syncData } = useContext(AppContext);
   const [selectedWorkoutId, setSelectedWorkoutId] = useState<string>("");
   const [editingExerciseIdx, setEditingExerciseIdx] = useState<number | null>(null);
+  const [editingWarmupIdx, setEditingWarmupIdx] = useState<number | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [notifPermission, setNotifPermission] = useState(window.Notification?.permission || 'default');
@@ -47,12 +48,29 @@ export default function SettingsView() {
     updateWorkouts(newWorkouts);
   };
 
+  const updatePlanWarmup = (workoutId: string, newWarmup: any[]) => {
+    const newWorkouts = { ...workouts };
+    newWorkouts[workoutId] = {
+        ...newWorkouts[workoutId],
+        warmup: newWarmup
+    };
+    updateWorkouts(newWorkouts);
+  };
+
   const handleEditSave = (updatedEx: Exercise) => {
     if (!selectedWorkoutId || editingExerciseIdx === null) return;
     const currentExercises = [...workouts[selectedWorkoutId].exercises];
     currentExercises[editingExerciseIdx] = updatedEx;
     updatePlanExercises(selectedWorkoutId, currentExercises);
     setEditingExerciseIdx(null);
+  };
+
+  const handleWarmupSave = (updatedWarmup: any) => {
+    if (!selectedWorkoutId || editingWarmupIdx === null) return;
+    const currentWarmup = [...(workouts[selectedWorkoutId].warmup || [])];
+    currentWarmup[editingWarmupIdx] = updatedWarmup;
+    updatePlanWarmup(selectedWorkoutId, currentWarmup);
+    setEditingWarmupIdx(null);
   };
 
   const handleDeleteExerciseRequest = (idx: number) => {
@@ -68,6 +86,22 @@ export default function SettingsView() {
     currentExercises.splice(idx, 1);
     updatePlanExercises(selectedWorkoutId, currentExercises);
     setEditingExerciseIdx(null);
+    setConfirmModal(null);
+  };
+
+  const handleDeleteWarmupRequest = (idx: number) => {
+      setConfirmModal({
+          isOpen: true,
+          message: "Czy na pewno chcesz usunąć tę rozgrzewkę z planu?",
+          action: () => performDeleteWarmup(idx)
+      });
+  };
+
+  const performDeleteWarmup = (idx: number) => {
+    const currentWarmup = [...(workouts[selectedWorkoutId].warmup || [])];
+    currentWarmup.splice(idx, 1);
+    updatePlanWarmup(selectedWorkoutId, currentWarmup);
+    setEditingWarmupIdx(null);
     setConfirmModal(null);
   };
 
@@ -89,6 +123,20 @@ export default function SettingsView() {
     currentExercises.push(newEx);
     updatePlanExercises(selectedWorkoutId, currentExercises);
     setEditingExerciseIdx(currentExercises.length - 1);
+  };
+
+  const handleAddWarmup = () => {
+    if (!selectedWorkoutId) return;
+    const newWarmup = { 
+      name: "Nowa rozgrzewka", 
+      pl: "Opis...", 
+      reps: "10 min", 
+      link: "" 
+    };
+    const currentWarmup = [...(workouts[selectedWorkoutId].warmup || [])];
+    currentWarmup.push(newWarmup);
+    updatePlanWarmup(selectedWorkoutId, currentWarmup);
+    setEditingWarmupIdx(currentWarmup.length - 1);
   };
 
   const handleAddWorkoutDay = () => {
@@ -135,6 +183,16 @@ export default function SettingsView() {
     if (newIdx >= 0 && newIdx < exercises.length) {
         [exercises[idx], exercises[newIdx]] = [exercises[newIdx], exercises[idx]];
         updatePlanExercises(selectedWorkoutId, exercises);
+    }
+  };
+
+  const handleMoveWarmup = (idx: number, dir: number) => {
+    if (!selectedWorkoutId) return;
+    const currentWarmup = [...(workouts[selectedWorkoutId].warmup || [])];
+    const newIdx = idx + dir;
+    if (newIdx >= 0 && newIdx < currentWarmup.length) {
+        [currentWarmup[idx], currentWarmup[newIdx]] = [currentWarmup[newIdx], currentWarmup[idx]];
+        updatePlanWarmup(selectedWorkoutId, currentWarmup);
     }
   };
 
@@ -389,6 +447,23 @@ export default function SettingsView() {
             </div>
 
             <div className="p-3 bg-gray-900 rounded-xl border border-gray-800">
+                <div className="flex items-center justify-between">
+                    <div className="pr-4">
+                        <div className="text-[11px] font-black text-white uppercase italic tracking-widest">Pokaż AI Coacha</div>
+                        <div className="text-[9px] text-gray-500 font-bold uppercase leading-tight mt-1">
+                            Wyświetlaj pływającą ikonę asystenta AI w prawym dolnym rogu ekranu.
+                        </div>
+                    </div>
+                    <button 
+                        onClick={() => updateSettings({ ...settings, showAiCoach: settings.showAiCoach === false ? true : false })}
+                        className={`w-12 h-6 rounded-full transition-all relative shadow-inner shrink-0 ${settings.showAiCoach !== false ? 'bg-red-600' : 'bg-gray-700'}`}
+                    >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.showAiCoach !== false ? 'left-7' : 'left-1'}`}></div>
+                    </button>
+                </div>
+            </div>
+
+            <div className="p-3 bg-gray-900 rounded-xl border border-gray-800">
                <div className="mb-2">
                  <div className="text-[11px] font-black text-white uppercase italic tracking-widest mb-2">Rodzaj Dźwięku</div>
                  <div className="flex items-center space-x-2">
@@ -491,6 +566,48 @@ export default function SettingsView() {
 
         {selectedWorkoutId && (
           <div className="border-t border-gray-800 pt-5">
+             {/* WARMUP SECTION */}
+             <div className="mb-8">
+               <h4 className="text-yellow-500 font-black text-xs uppercase italic mb-4 flex items-center">
+                 <i className="fas fa-fire mr-2"></i> Rozgrzewka / Aktywacja
+               </h4>
+               {editingWarmupIdx !== null ? (
+                 <WarmupForm 
+                   warmup={workouts[selectedWorkoutId].warmup?.[editingWarmupIdx] || {}} 
+                   onSave={handleWarmupSave} 
+                   onCancel={() => setEditingWarmupIdx(null)} 
+                   onDelete={() => handleDeleteWarmupRequest(editingWarmupIdx)} 
+                 />
+               ) : (
+                 <>
+                   <div className="space-y-3">
+                     {workouts[selectedWorkoutId].warmup?.map((w, idx) => (
+                       <div key={idx} className="bg-gray-900 p-4 rounded-2xl flex justify-between items-center border border-gray-800 shadow-sm active:bg-gray-800 transition">
+                         <div className="flex-1 cursor-pointer" onClick={() => setEditingWarmupIdx(idx)}>
+                            <div className="font-black text-xs text-white italic uppercase tracking-tighter">{idx+1}. {w.name}</div>
+                            <div className="text-[9px] text-gray-600 font-bold uppercase mt-0.5">{w.reps} | {w.pl}</div>
+                         </div>
+                         <div className="flex space-x-2 ml-2">
+                           <div className="flex flex-col space-y-1">
+                             {idx > 0 && <button onClick={() => handleMoveWarmup(idx, -1)} className="text-gray-600 hover:text-white p-1.5 text-[10px]"><i className="fas fa-arrow-up"></i></button>}
+                             {idx < (workouts[selectedWorkoutId].warmup?.length || 0) - 1 && <button onClick={() => handleMoveWarmup(idx, 1)} className="text-gray-600 hover:text-white p-1.5 text-[10px]"><i className="fas fa-arrow-down"></i></button>}
+                           </div>
+                           <button onClick={(e) => { e.stopPropagation(); handleDeleteWarmupRequest(idx); }} className="text-red-900 hover:text-red-500 p-2 transition"><i className="fas fa-times-circle"></i></button>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                   <button onClick={handleAddWarmup} className="mt-4 w-full bg-yellow-600/10 hover:bg-yellow-600 text-yellow-500 hover:text-white py-3 rounded-2xl border border-yellow-500/30 font-black uppercase italic tracking-widest text-[10px] transition shadow-lg active:scale-95">
+                     Dodaj rozgrzewkę
+                   </button>
+                 </>
+               )}
+             </div>
+
+             {/* EXERCISES SECTION */}
+             <h4 className="text-red-500 font-black text-xs uppercase italic mb-4 flex items-center">
+               <i className="fas fa-dumbbell mr-2"></i> Ćwiczenia Główne
+             </h4>
              {editingExerciseIdx !== null ? (
                <ExerciseForm 
                  exercise={workouts[selectedWorkoutId].exercises[editingExerciseIdx]} 
@@ -505,7 +622,7 @@ export default function SettingsView() {
                      <div key={idx} className="bg-gray-900 p-4 rounded-2xl flex justify-between items-center border border-gray-800 shadow-sm active:bg-gray-800 transition">
                        <div className="flex-1 cursor-pointer" onClick={() => setEditingExerciseIdx(idx)}>
                           <div className="font-black text-xs text-white italic uppercase tracking-tighter">{idx+1}. {ex.name}</div>
-                          <div className="text-[9px] text-gray-600 font-bold uppercase mt-0.5">{ex.sets}s | {ex.reps}p | {ex.rest}s | {ex.type}</div>
+                          <div className="text-[9px] text-gray-600 font-bold uppercase mt-0.5">{ex.sets}s | {ex.reps}p | {ex.tempo} | RIR {ex.rir} | {ex.rest}s | {ex.type}</div>
                        </div>
                        <div className="flex space-x-2 ml-2">
                          <div className="flex flex-col space-y-1">
@@ -571,6 +688,45 @@ export default function SettingsView() {
   );
 }
 
+const WarmupForm = ({ warmup, onSave, onCancel, onDelete }: { warmup: any, onSave: (w: any) => void, onCancel: () => void, onDelete: () => void }) => {
+  const [formData, setFormData] = useState<any>({ ...warmup });
+  const handleChange = (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value }));
+  
+  return (
+    <div className="bg-gray-900 p-5 rounded-3xl border-2 border-yellow-500 animate-fade-in shadow-2xl relative z-30 mb-6">
+      <div className="flex justify-between items-center mb-6">
+        <h4 className="font-black text-white text-base uppercase italic tracking-tighter text-yellow-500">Edycja rozgrzewki</h4>
+        <button onClick={onDelete} className="bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase italic transition flex items-center border border-red-500/30"><i className="fas fa-trash-alt mr-1.5"></i> Usuń</button>
+      </div>
+      <div className="space-y-4 text-xs font-bold">
+        <div>
+          <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Nazwa</label>
+          <input type="text" value={formData.name} onChange={e => handleChange('name', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-yellow-500 transition" />
+        </div>
+        <div>
+          <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Opis / Uwagi (PL)</label>
+          <input type="text" value={formData.pl} onChange={e => handleChange('pl', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-gray-400 p-3.5 rounded-xl outline-none focus:border-yellow-500 transition" />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Czas / Powtórzenia</label>
+            <input type="text" value={formData.reps} onChange={e => handleChange('reps', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-yellow-500 transition font-bold uppercase" placeholder="np. 10 min" />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Link YT</label>
+            <input type="text" value={formData.link || ''} onChange={e => handleChange('link', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl outline-none focus:border-yellow-500 transition font-bold" placeholder="https://..." />
+          </div>
+        </div>
+      </div>
+      <div className="flex space-x-3 mt-8">
+        <button onClick={onCancel} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-4 rounded-xl font-black uppercase italic tracking-widest text-[10px] transition">Anuluj</button>
+        <button onClick={() => onSave(formData)} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-white py-4 rounded-xl font-black uppercase italic tracking-widest text-[10px] shadow-[0_0_15px_rgba(202,138,4,0.4)] transition">Zapisz</button>
+      </div>
+    </div>
+  );
+};
+
 const ExerciseForm = ({ exercise, onSave, onCancel, onDelete }: { exercise: Exercise, onSave: (e: Exercise) => void, onCancel: () => void, onDelete: () => void }) => {
   const [formData, setFormData] = useState<Exercise>({ ...exercise });
   const handleChange = (field: keyof Exercise, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
@@ -612,19 +768,19 @@ const ExerciseForm = ({ exercise, onSave, onCancel, onDelete }: { exercise: Exer
             <input type="text" value={formData.reps} onChange={e => handleChange('reps', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-green-500 p-3.5 rounded-xl text-center" placeholder="8-10" />
           </div>
           <div>
-            <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Przerwa (s)</label>
-            <input type="number" value={formData.rest} onChange={e => handleChange('rest', parseInt(e.target.value))} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl text-center" placeholder="90" />
+            <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Tempo</label>
+            <input type="text" value={formData.tempo} onChange={e => handleChange('tempo', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-blue-500 p-3.5 rounded-xl text-center" placeholder="2011" />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Tempo</label>
-            <input type="text" value={formData.tempo} onChange={e => handleChange('tempo', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-blue-500 p-3.5 rounded-xl text-center" placeholder="2011" />
-          </div>
-          <div>
             <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">RIR</label>
             <input type="text" value={formData.rir} onChange={e => handleChange('rir', e.target.value)} className="w-full bg-[#121212] border border-gray-800 text-red-500 p-3.5 rounded-xl text-center" placeholder="1" />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-600 font-black uppercase italic mb-1.5 block tracking-widest">Przerwa (s)</label>
+            <input type="number" value={formData.rest} onChange={e => handleChange('rest', parseInt(e.target.value))} className="w-full bg-[#121212] border border-gray-800 text-white p-3.5 rounded-xl text-center" placeholder="90" />
           </div>
         </div>
 

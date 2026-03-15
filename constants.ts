@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS = {
   autoRestTimer: true,
   pushNotificationsEnabled: false,
   wakeLockEnabled: true,
+  showAiCoach: true,
   userGoal: "",
   userDifficulties: "",
   targetWorkoutsPerWeek: 3,
