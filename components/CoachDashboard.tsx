@@ -917,7 +917,10 @@ export default function CoachDashboard() {
                                                 </div>
                                             ) : (
                                                 <div className="flex justify-between items-center text-xs md:text-sm">
-                                                    <span className="text-gray-300"><span className="text-gray-600 font-bold mr-2">{idx+1}.</span> {w.pl || w.name}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-gray-300"><span className="text-gray-600 font-bold mr-2">{idx+1}.</span> {w.name || w.pl}</span>
+                                                        {w.pl && w.name && <span className="text-[10px] text-gray-500 ml-5">{w.pl}</span>}
+                                                    </div>
                                                     <div className="flex items-center space-x-3">
                                                         <span className="text-gray-500 font-bold">{w.reps}</span>
                                                         {w.link && (
@@ -1133,7 +1136,10 @@ export default function CoachDashboard() {
                                 <div className="space-y-2">
                                     {selectedClient.plan[activeTraining.workoutId].warmup?.map((w: any, idx: number) => (
                                         <div key={idx} className="flex justify-between items-center text-xs md:text-sm border-b border-gray-800 pb-2 last:border-0">
-                                            <span className="text-gray-300"><span className="text-gray-600 font-bold mr-2">{idx+1}.</span> {w.pl || w.name}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-gray-300"><span className="text-gray-600 font-bold mr-2">{idx+1}.</span> {w.name || w.pl}</span>
+                                                {w.pl && w.name && <span className="text-[10px] text-gray-500 ml-5">{w.pl}</span>}
+                                            </div>
                                             <div className="flex items-center space-x-3">
                                                 <span className="text-gray-500 font-bold">{w.reps}</span>
                                                 {w.link && (
