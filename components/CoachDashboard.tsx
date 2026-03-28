@@ -9,9 +9,19 @@ import { AppContext } from '../App';
 type CoachTab = 'plan' | 'history' | 'calendar' | 'cardio' | 'measurements' | 'progress' | 'training' | 'info';
 
 const CustomLabel = (props: any) => {
-  const { x, y, value } = props;
+  const { x, y, value, index, data } = props;
+  const reps = data?.[index]?.reps;
   return (
-    <text x={x} y={y - 12} fill="#ffffff" textAnchor="middle" fontSize={10} fontWeight="bold">{value} kg</text>
+    <g>
+      {reps && (
+        <text x={x} y={y - 24} fill="#9ca3af" textAnchor="middle" fontSize={10} fontWeight="bold">
+          x {reps}
+        </text>
+      )}
+      <text x={x} y={y - 12} fill="#ffffff" textAnchor="middle" fontSize={10} fontWeight="bold">
+        {value} kg
+      </text>
+    </g>
   );
 };
 
@@ -230,18 +240,29 @@ export default function CoachDashboard() {
         const resultStr = entry.results[exerciseId];
         if (!resultStr) return null;
         let cleanResultStr = resultStr.split('[')[0].split('(')[0];
-        const matches = cleanResultStr.matchAll(/(\d+(?:[.,]\d+)?)\s*kg/gi);
+        const matches = cleanResultStr.matchAll(/(\d+(?:[.,]\d+)?)\s*kg(?:\s*x\s*(\d+))?/gi);
         let maxWeight = 0;
+        let maxReps = '';
         let found = false;
         for (const match of matches) {
           const weightVal = parseFloat(match[1].replace(',', '.'));
+          const repsVal = match[2] || '';
           if (!isNaN(weightVal)) {
-            if (weightVal > maxWeight) maxWeight = weightVal;
+            if (weightVal > maxWeight) {
+                maxWeight = weightVal;
+                maxReps = repsVal;
+            } else if (weightVal === maxWeight) {
+                const currentRepsNum = parseInt(maxReps) || 0;
+                const newRepsNum = parseInt(repsVal) || 0;
+                if (newRepsNum > currentRepsNum) {
+                    maxReps = repsVal;
+                }
+            }
             found = true;
           }
         }
         if (!found) return null;
-        return { date: entry.date.split(/[ ,]/)[0].slice(0, 5), weight: maxWeight };
+        return { date: entry.date.split(/[ ,]/)[0].slice(0, 5), weight: maxWeight, reps: maxReps };
       })
       .filter(Boolean);
   };
@@ -1072,12 +1093,26 @@ export default function CoachDashboard() {
                         const minW = Math.min(...weights);
                         const domainMax = Math.ceil(maxW * 1.25); 
                         const domainMin = Math.max(0, Math.floor(minW * 0.8));
+                        
+                        const maxEntries = data.filter((d: any) => d.weight === maxW);
+                        let maxReps = '';
+                        let maxRepsNum = 0;
+                        maxEntries.forEach((entry: any) => {
+                            const repsNum = parseInt(entry.reps) || 0;
+                            if (repsNum > maxRepsNum) {
+                                maxRepsNum = repsNum;
+                                maxReps = entry.reps;
+                            }
+                        });
+                        if (!maxReps && maxEntries.length > 0) {
+                            maxReps = maxEntries[0].reps;
+                        }
 
                         return (
                             <div key={ex.id} className="bg-[#1e1e1e] p-3 md:p-4 rounded-xl shadow-sm border border-gray-800">
                                 <div className="flex justify-between items-center mb-2 border-b border-gray-700 pb-2">
                                     <h4 className="font-bold text-white text-xs md:text-sm truncate max-w-[70%] italic uppercase">{ex.name}</h4>
-                                    <span className="text-[10px] md:text-xs font-bold text-blue-400 shrink-0">Max: {maxW} kg</span>
+                                    <span className="text-[10px] md:text-xs font-bold text-blue-400 shrink-0">Max: {maxW} kg {maxReps && <span className="text-gray-500 font-medium">x {maxReps}</span>}</span>
                                 </div>
                                 <div className="h-44 md:h-56 w-full pt-4">
                                     <ResponsiveContainer width="100%" height="100%">
@@ -1085,8 +1120,8 @@ export default function CoachDashboard() {
                                             <CartesianGrid stroke="#333" strokeDasharray="3 3" vertical={false} />
                                             <XAxis dataKey="date" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickMargin={10} padding={{ left: 30, right: 30 }} />
                                             <YAxis hide={true} domain={[domainMin, domainMax]} />
-                                            <Tooltip contentStyle={{backgroundColor: '#111', border: '1px solid #444', borderRadius: '4px', fontSize: '10px'}} itemStyle={{ color: '#fff' }} />
-                                            <Line type="monotone" dataKey="weight" stroke="#ef4444" strokeWidth={2} dot={{r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#1e1e1e'}} activeDot={{r: 6, fill: '#fff'}} label={<CustomLabel />} isAnimationActive={false} />
+                                            <Tooltip contentStyle={{backgroundColor: '#111', border: '1px solid #444', borderRadius: '4px', fontSize: '10px'}} itemStyle={{ color: '#fff' }} formatter={(v: any, name: any, props: any) => [`${v} kg ${props?.payload?.reps ? `x ${props.payload.reps}` : ''}`, '']} />
+                                            <Line type="monotone" dataKey="weight" stroke="#ef4444" strokeWidth={2} dot={{r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#1e1e1e'}} activeDot={{r: 6, fill: '#fff'}} label={(props: any) => <CustomLabel {...props} data={data} />} isAnimationActive={false} />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>

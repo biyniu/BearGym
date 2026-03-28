@@ -269,8 +269,8 @@ export default function CardioView() {
                   <div className="space-y-3">
                       {group.items.map(session => {
                           const typeData = cardioTypes.find(t => t.value === session.type);
-                          const icon = session.type === 'mobility' ? 'fa-universal-access' : session.type === 'fight' ? 'fa-hand-fist' : typeData?.icon || 'fa-heartbeat';
-                          const colorClass = session.type === 'mobility' ? 'text-purple-500' : session.type === 'fight' ? 'text-sky-400' : 'text-green-500';
+                          const icon = session.type === 'mobility' ? 'fa-universal-access' : session.type === 'fight' ? 'fa-hand-fist' : session.type === 'interval' ? 'fa-stopwatch' : typeData?.icon || 'fa-heartbeat';
+                          const colorClass = session.type === 'mobility' ? 'text-purple-500' : session.type === 'fight' ? 'text-sky-400' : session.type === 'interval' ? 'text-orange-500' : 'text-green-500';
                           
                           return (
                               <div key={session.id} className="bg-[#1e1e1e] p-4 rounded-xl red-glow-box flex items-center justify-between group">

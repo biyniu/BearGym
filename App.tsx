@@ -12,6 +12,7 @@ import AuthView from './components/AuthView';
 import CoachDashboard from './components/CoachDashboard';
 import InstallPrompt from './components/InstallPrompt';
 import AICoachWidget from './components/AICoachWidget';
+import IntervalView from './components/IntervalView';
 import { localStorageCache, remoteStorage, storage } from './services/storage';
 import { WorkoutsMap, AppSettings } from './types';
 import { CLIENT_CONFIG, DEFAULT_SETTINGS } from './constants';
@@ -570,6 +571,7 @@ export default function App() {
             <Route path="/progress" element={<ProgressView />} />
             <Route path="/measurements" element={<MeasurementsView />} />
             <Route path="/cardio" element={<CardioView />} />
+            <Route path="/interval" element={<IntervalView />} />
             <Route path="/settings" element={<SettingsView />} />
             <Route path="/coach-admin" element={<CoachDashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -86,6 +86,7 @@ export default function Dashboard() {
           <button onClick={() => navigate('/progress')} className="bg-[#1e1e1e] rounded-xl red-glow-box p-4 text-blue-400 hover:text-blue-300 flex flex-col items-center justify-center transition hover:border-blue-900"><i className="fas fa-chart-line mb-2 text-2xl"></i> <span className="text-xs font-bold uppercase tracking-tighter">Wykresy postępu</span></button>
         </div>
         <button onClick={() => navigate('/measurements')} className="w-full bg-[#1e1e1e] rounded-xl red-glow-box p-4 text-green-400 hover:text-green-300 flex items-center justify-center transition hover:border-green-900"><i className="fas fa-ruler-combined text-2xl mr-3"></i><span className="font-black uppercase italic tracking-tighter">Pomiary Ciała</span></button>
+        <button onClick={() => navigate('/interval')} className="w-full bg-[#1e1e1e] rounded-xl red-glow-box p-4 text-orange-400 hover:text-orange-300 flex items-center justify-center transition hover:border-orange-900"><i className="fas fa-stopwatch text-2xl mr-3"></i><span className="font-black uppercase italic tracking-tighter">Interwał</span></button>
         <button onClick={() => navigate('/cardio')} className="w-full bg-[#1e1e1e] rounded-xl red-glow-box p-4 hover:bg-[#252525] flex flex-col items-center justify-center transition hover:border-red-900 group">
           <div className="flex items-center justify-center space-x-3 mb-2">
             <i className="fas fa-heartbeat text-2xl text-green-500 group-hover:scale-110 transition"></i>
@@ -108,9 +109,9 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
     const daysShort = ['Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So', 'Nd'];
 
     const { dayStatus, lastSessionStats } = useMemo(() => {
-        const status: Record<string, { T: boolean; C: boolean; M: boolean; F: boolean; S: boolean }> = {};
+        const status: Record<string, { T: boolean; C: boolean; M: boolean; F: boolean; S: boolean; I: boolean }> = {};
         let allEntries: any[] = [];
-        const ensureDate = (d: string) => { if (!status[d]) status[d] = { T: false, C: false, M: false, F: false, S: false }; };
+        const ensureDate = (d: string) => { if (!status[d]) status[d] = { T: false, C: false, M: false, F: false, S: false, I: false }; };
         
         Object.keys(workouts).forEach(id => {
             const hist = externalHistory ? (externalHistory[id] || []) : storage.getHistory(id);
@@ -130,6 +131,7 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
             if (c.type === 'mobility') status[datePart].M = true;
             else if (c.type === 'fight') status[datePart].F = true;
             else if (c.type === 'spacer') status[datePart].S = true;
+            else if (c.type === 'interval') status[datePart].I = true;
             else status[datePart].C = true;
         });
         
@@ -200,11 +202,12 @@ export function ActivityWidget({ workouts, logo, externalHistory, externalCardio
                                 if (status?.S) activeTypes.push({ color: 'bg-green-500', letter: 'S' });
                                 if (status?.M) activeTypes.push({ color: 'bg-purple-600', letter: 'M' });
                                 if (status?.F) activeTypes.push({ color: 'bg-sky-400', letter: 'F' });
+                                if (status?.I) activeTypes.push({ color: 'bg-orange-500', letter: 'I' });
                                 return (
                                     <div key={day} className={`aspect-square rounded-xl flex items-center justify-center relative border border-gray-800 transition-all overflow-hidden bg-black/40 group hover:border-gray-600`}>
                                         <span className={`absolute top-1 left-2 text-[12px] font-black z-20 ${activeTypes.length > 0 ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,1)]' : 'text-gray-700'}`}>{day}</span>
                                         {activeTypes.length > 0 && (
-                                            <div className={`w-full h-full grid ${activeTypes.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} ${activeTypes.length > 2 ? 'grid-rows-2' : ''}`}>
+                                            <div className={`w-full h-full grid ${activeTypes.length === 1 ? 'grid-cols-1' : activeTypes.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'} ${activeTypes.length > 2 ? 'grid-rows-2' : ''}`}>
                                                 {activeTypes.map((t, i) => (
                                                     <div key={i} className={`${t.color} flex items-center justify-center relative ${activeTypes.length === 3 && i === 2 ? 'col-span-2' : ''}`}><span className="text-[10px] font-black text-white italic drop-shadow-sm group-hover:scale-110 transition-transform">{t.letter}</span></div>
                                                 ))}

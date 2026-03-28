@@ -31,14 +31,25 @@ export default function ProgressView() {
         let cleanResultStr = resultStr.split('[')[0];
         cleanResultStr = cleanResultStr.split('(')[0];
 
-        const matches = cleanResultStr.matchAll(/(\d+(?:[.,]\d+)?)\s*kg/gi);
+        const matches = cleanResultStr.matchAll(/(\d+(?:[.,]\d+)?)\s*kg(?:\s*x\s*(\d+))?/gi);
         let maxWeight = 0;
+        let maxReps = '';
         let found = false;
 
         for (const match of matches) {
           const weightVal = parseFloat(match[1].replace(',', '.'));
+          const repsVal = match[2] || '';
           if (!isNaN(weightVal)) {
-            if (weightVal > maxWeight) maxWeight = weightVal;
+            if (weightVal > maxWeight) {
+                maxWeight = weightVal;
+                maxReps = repsVal;
+            } else if (weightVal === maxWeight) {
+                const currentRepsNum = parseInt(maxReps) || 0;
+                const newRepsNum = parseInt(repsVal) || 0;
+                if (newRepsNum > currentRepsNum) {
+                    maxReps = repsVal;
+                }
+            }
             found = true;
           }
         }
@@ -49,6 +60,7 @@ export default function ProgressView() {
         return {
           date: datePart.slice(0, 5),
           weight: maxWeight,
+          reps: maxReps,
           fullDate: entry.date
         };
       })
@@ -73,9 +85,19 @@ export default function ProgressView() {
   };
 
   const CustomLabel = (props: any) => {
-    const { x, y, value } = props;
+    const { x, y, value, index, data } = props;
+    const reps = data?.[index]?.reps;
     return (
-      <text x={x} y={y - 12} fill="#ffffff" textAnchor="middle" fontSize={10} fontWeight="bold">{value}</text>
+      <g>
+        {reps && (
+          <text x={x} y={y - 24} fill="#9ca3af" textAnchor="middle" fontSize={10} fontWeight="bold">
+            x {reps}
+          </text>
+        )}
+        <text x={x} y={y - 12} fill="#ffffff" textAnchor="middle" fontSize={10} fontWeight="bold">
+          {value} kg
+        </text>
+      </g>
     );
   };
 
@@ -111,12 +133,26 @@ export default function ProgressView() {
               const minVal = Math.min(...weights);
               const domainMax = Math.ceil(maxVal * 1.25); 
               const domainMin = Math.max(0, Math.floor(minVal * 0.8));
+              
+              const maxEntries = data.filter((d: any) => d.weight === maxVal);
+              let maxReps = '';
+              let maxRepsNum = 0;
+              maxEntries.forEach((entry: any) => {
+                  const repsNum = parseInt(entry.reps) || 0;
+                  if (repsNum > maxRepsNum) {
+                      maxRepsNum = repsNum;
+                      maxReps = entry.reps;
+                  }
+              });
+              if (!maxReps && maxEntries.length > 0) {
+                  maxReps = maxEntries[0].reps;
+              }
 
               return (
                   <div key={ex.id} className="bg-[#1e1e1e] p-3 rounded-lg red-glow-box">
                       <div className="flex justify-between items-center mb-1 border-b border-gray-700 pb-1">
                           <h3 className="font-bold text-white text-sm truncate max-w-[70%]">{ex.name}</h3>
-                          <span className="text-xs font-bold text-blue-400">Max: {maxVal} kg</span>
+                          <span className="text-xs font-bold text-blue-400">Max: {maxVal} kg {maxReps && <span className="text-gray-500 font-medium">x {maxReps}</span>}</span>
                       </div>
                       <div className="h-44 w-full pt-4">
                           <ResponsiveContainer width="100%" height="100%">
@@ -124,8 +160,8 @@ export default function ProgressView() {
                               <CartesianGrid stroke="#333" strokeDasharray="3 3" vertical={false} />
                               <XAxis dataKey="date" stroke="#666" tick={{fill: '#888', fontSize: 10}} tickMargin={10} padding={{ left: 25, right: 25 }} />
                               <YAxis hide={true} domain={[domainMin, domainMax]} />
-                              <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #444', borderRadius: '4px', fontSize: '10px' }} itemStyle={{ color: '#fff' }} formatter={(v: any) => [`${v} kg`, '']} />
-                              <Line type="monotone" dataKey="weight" stroke="#ef4444" strokeWidth={2} dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#1e1e1e' }} activeDot={{ r: 6, fill: '#fff' }} label={<CustomLabel />} isAnimationActive={false} />
+                              <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #444', borderRadius: '4px', fontSize: '10px' }} itemStyle={{ color: '#fff' }} formatter={(v: any, name: any, props: any) => [`${v} kg ${props?.payload?.reps ? `x ${props.payload.reps}` : ''}`, '']} />
+                              <Line type="monotone" dataKey="weight" stroke="#ef4444" strokeWidth={2} dot={{ r: 4, fill: '#ef4444', strokeWidth: 2, stroke: '#1e1e1e' }} activeDot={{ r: 6, fill: '#fff' }} label={(props: any) => <CustomLabel {...props} data={data} />} isAnimationActive={false} />
                               </LineChart>
                           </ResponsiveContainer>
                       </div>
