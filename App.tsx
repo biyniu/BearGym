@@ -334,8 +334,10 @@ export default function App() {
         if (!wakeLockRef.current) {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
         }
-      } catch (err) {
-        console.error(`Wake Lock error: ${err}`);
+      } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+          console.error(`Wake Lock error: ${err}`);
+        }
       }
     }
   };

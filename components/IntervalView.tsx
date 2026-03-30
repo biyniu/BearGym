@@ -7,9 +7,13 @@ type Phase = 'idle' | 'run' | 'walk' | 'finished';
 export default function IntervalView() {
   const { playAlarm, syncData } = useContext(AppContext);
   
-  const [runTime, setRunTime] = useState<number>(45);
-  const [walkTime, setWalkTime] = useState<number>(60);
-  const [rounds, setRounds] = useState<number>(10);
+  const [runTimeStr, setRunTimeStr] = useState<string>('45');
+  const [walkTimeStr, setWalkTimeStr] = useState<string>('60');
+  const [roundsStr, setRoundsStr] = useState<string>('10');
+  
+  const runTime = parseInt(runTimeStr) || 0;
+  const walkTime = parseInt(walkTimeStr) || 0;
+  const rounds = parseInt(roundsStr) || 0;
   
   const [currentRound, setCurrentRound] = useState<number>(1);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -20,23 +24,21 @@ export default function IntervalView() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastTickRef = useRef<number>(Date.now());
 
-  const totalTime = (runTime + walkTime) * rounds;
+  const totalTime = (runTime + walkTime) * rounds + walkTime;
   
   // Calculate remaining total time
   const calculateRemainingTotalTime = () => {
     if (phase === 'idle') return totalTime;
     if (phase === 'finished') return 0;
     
-    let remainingRounds = rounds - currentRound;
-    let timeInCurrentRound = 0;
-    
-    if (phase === 'run') {
-      timeInCurrentRound = timeLeft + walkTime;
-    } else if (phase === 'walk') {
-      timeInCurrentRound = timeLeft;
+    let timePassed = 0;
+    if (phase === 'walk') {
+      timePassed = (currentRound - 1) * (walkTime + runTime) + (walkTime - timeLeft);
+    } else if (phase === 'run') {
+      timePassed = (currentRound - 1) * (walkTime + runTime) + walkTime + (runTime - timeLeft);
     }
     
-    return (remainingRounds * (runTime + walkTime)) + timeInCurrentRound;
+    return Math.max(0, totalTime - timePassed);
   };
 
   const remainingTotalTime = calculateRemainingTotalTime();
@@ -89,10 +91,12 @@ export default function IntervalView() {
   };
 
   const startTimer = () => {
+    if (runTime <= 0 || walkTime <= 0 || rounds <= 0) return;
+    
     if (phase === 'idle' || phase === 'finished') {
       setCurrentRound(1);
-      setPhase('run');
-      setTimeLeft(runTime);
+      setPhase('walk');
+      setTimeLeft(walkTime);
     }
     lastTickRef.current = Date.now();
     setIsRunning(true);
@@ -127,20 +131,20 @@ export default function IntervalView() {
             playAlarm();
             const overflow = Math.abs(timeLeft - delta);
             
-            if (phase === 'run') {
-              setPhase('walk');
-              setTimeLeft(Math.max(0, walkTime - overflow));
-            } else if (phase === 'walk') {
-              if (currentRound >= rounds) {
+            if (phase === 'walk') {
+              if (currentRound > rounds) {
                 setPhase('finished');
                 setIsRunning(false);
                 saveSession(totalTime);
                 setTimeLeft(0);
               } else {
-                setCurrentRound((r) => r + 1);
                 setPhase('run');
                 setTimeLeft(Math.max(0, runTime - overflow));
               }
+            } else if (phase === 'run') {
+              setCurrentRound((r) => r + 1);
+              setPhase('walk');
+              setTimeLeft(Math.max(0, walkTime - overflow));
             }
           } else {
             setTimeLeft(timeLeft - delta);
@@ -174,8 +178,8 @@ export default function IntervalView() {
             </label>
             <input 
               type="number" 
-              value={runTime} 
-              onChange={(e) => setRunTime(Math.max(1, parseInt(e.target.value) || 0))}
+              value={runTimeStr} 
+              onChange={(e) => setRunTimeStr(e.target.value)}
               className="bg-black border border-gray-700 rounded-lg text-white font-bold text-center w-20 p-2 focus:border-red-500 outline-none"
             />
           </div>
@@ -186,8 +190,8 @@ export default function IntervalView() {
             </label>
             <input 
               type="number" 
-              value={walkTime} 
-              onChange={(e) => setWalkTime(Math.max(1, parseInt(e.target.value) || 0))}
+              value={walkTimeStr} 
+              onChange={(e) => setWalkTimeStr(e.target.value)}
               className="bg-black border border-gray-700 rounded-lg text-white font-bold text-center w-20 p-2 focus:border-green-500 outline-none"
             />
           </div>
@@ -198,8 +202,8 @@ export default function IntervalView() {
             </label>
             <input 
               type="number" 
-              value={rounds} 
-              onChange={(e) => setRounds(Math.max(1, parseInt(e.target.value) || 0))}
+              value={roundsStr} 
+              onChange={(e) => setRoundsStr(e.target.value)}
               className="bg-black border border-gray-700 rounded-lg text-white font-bold text-center w-20 p-2 focus:border-blue-500 outline-none"
             />
           </div>
@@ -220,7 +224,7 @@ export default function IntervalView() {
         }`}>
           <div className="text-center mb-2">
             <span className="text-gray-400 font-bold uppercase tracking-widest text-sm">
-              Runda {currentRound} / {rounds}
+              Runda {currentRound > rounds ? rounds : currentRound} / {rounds}
             </span>
           </div>
           

@@ -1560,24 +1560,33 @@ function CoachStopwatch({ initialValue, onChange }: { initialValue: string, onCh
   const [time, setTime] = useState<number>(parseInt(initialValue) || 0);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<number | null>(null);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   useEffect(() => {
     const val = parseInt(initialValue) || 0;
     if (val !== time && !isRunning) setTime(val);
   }, [initialValue, isRunning, time]);
 
+  useEffect(() => {
+    if (isRunning) {
+      onChangeRef.current(time.toString());
+    }
+  }, [time, isRunning]);
+
   const toggle = () => {
     if (isRunning) {
       setIsRunning(false);
       if (intervalRef.current) clearInterval(intervalRef.current);
     } else {
+      setTime(0);
+      onChangeRef.current("0");
       setIsRunning(true);
       intervalRef.current = window.setInterval(() => {
-        setTime(t => {
-          const nv = t + 1;
-          onChange(nv.toString());
-          return nv;
-        });
+        setTime(t => t + 1);
       }, 1000);
     }
   };
